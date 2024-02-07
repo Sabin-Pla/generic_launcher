@@ -4,23 +4,18 @@ use gtk::subclass::prelude::ObjectSubclass;
 use gtk::subclass::prelude::ObjectImpl;
 use std::sync::OnceLock;
 use glib::subclass::Signal;
-
-
 use std::sync::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
-use libc::{O_WRONLY, O_RDONLY, O_NONBLOCK};
 use gio::prelude::*;
 use gtk::prelude::*;
 use gtk4_layer_shell::{KeyboardMode, Edge, Layer, LayerShell};
 use std::ffi::CStr;
-
 use std::os::fd::IntoRawFd;
 use std::fs;
 use std::os::raw::c_char;
 use std::ffi::CString;
-use libc::{c_void, mkfifo, fdopen, fclose, read, fprintf, close, fgets, open, write};
 use std::fs::File;
 
 
