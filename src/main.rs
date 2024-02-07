@@ -17,6 +17,7 @@ use std::fs;
 use std::os::raw::c_char;
 use std::ffi::CString;
 use std::fs::File;
+use gtk::PropagationPhase;
 
 
 static  mut launcher: Launcher = Launcher { 
@@ -28,6 +29,22 @@ thread_local! {
     static WINDOW: RefCell<Option<gtk::ApplicationWindow>> = RefCell::new(None);
 }
 
+fn key_handler(ec: &gtk::EventControllerKey, 
+        key: gdk::Key, _: u32, _: gdk::ModifierType) -> gtk::glib::Propagation {
+    println!("key {}", key);
+    if key == gdk::Key::Escape {
+        unsafe {
+            WINDOW.with( |w| {
+                    let mut w = (*w).borrow_mut();
+                    let w = w.as_mut().unwrap();
+                    w.hide();
+                    launcher.state = State::Hidden;
+                }
+            )
+        }
+    }
+    gtk::glib::Propagation::Stop
+}
 
 unsafe fn activate(application: &gtk::Application) {
 	println!("Activating...");
@@ -66,7 +83,7 @@ unsafe fn startup(application: &gtk::Application) {
     w.add_action_entries([action_close]);
     let input_field = gtk::Entry::new();
     w.init_layer_shell();
-    w.set_layer(Layer::Top);
+    w.set_layer(Layer::Overlay);
     w.auto_exclusive_zone_enable();
     w.set_margin(Edge::Left, 90);
     w.set_margin(Edge::Right, 90);
@@ -82,11 +99,16 @@ unsafe fn startup(application: &gtk::Application) {
     for (anchor, state) in anchors {
         w.set_anchor(anchor, state);
     }
-
+    let ec = gtk::EventControllerKey::builder()
+        .propagation_phase(PropagationPhase::Capture).build();
+    ec.connect_key_pressed(key_handler);    //ec.forward(&input_field);
+    input_field.add_controller(ec);
     w.set_child(Some(&input_field));
     input_field.grab_focus_without_selecting();
     w.set_keyboard_mode(KeyboardMode::Exclusive);
     w.show();
+
+    //w.add clock https://github.com/gtk-rs/gtk4-rs/blob/master/examples/clock/main.rs
     WINDOW.replace(Some(w));
 
 }
