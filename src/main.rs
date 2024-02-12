@@ -20,8 +20,14 @@ use std::fs::File;
 use gtk::PropagationPhase;
 use std::time::{Duration, SystemTime};
 
+mod search;
+mod search_buffer_imp;
+
+use search_buffer_imp::SearchEntry;
+
 static  mut launcher: Launcher = Launcher { 
 	state: State::NotStarted, 
+    search_input_buffer: None,
 	done_init: false
 }; 
 
@@ -31,7 +37,7 @@ thread_local! {
 
 fn get_time_str() -> String {
     let date_time  =  chrono::offset::Local::now();
-    let formatted = format!("{}", date_time.format("%d/%m/%Y %H:%M"));
+    let formatted = format!("{}", date_time.format("%a %d/%B %Y %H:%M:%S"));
     formatted
 }
 
@@ -107,7 +113,13 @@ unsafe fn startup(application: &gtk::Application) {
         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
 
     w.add_action_entries([action_close]);
-    let input_field = gtk::Entry::new();
+    let mut buffer = search_buffer_imp::SearchEntryBuffer::new();
+    buffer.context.borrow_mut().set_desktop_files(search::get_xdg_desktop_entries());
+    let input_field = gtk::Entry::builder().xalign(0.5)
+        .buffer(&SearchEntry::new(buffer)).build();
+    input_field.set_halign(gtk::Align::Center);
+    let context = input_field.style_context();
+    context.add_class("input_field");
     w.init_layer_shell();
 
     // consider https://gtk-rs.org/gtk4-rs/git/docs/gdk4/prelude/trait.SurfaceExt.html connect_leave_monitor workaround
@@ -120,8 +132,8 @@ unsafe fn startup(application: &gtk::Application) {
     w.set_margin(Edge::Top, 90);
 
     let anchors = [
-        (Edge::Left, false),
-        (Edge::Right, false),
+        (Edge::Left, true),
+        (Edge::Right, true),
         (Edge::Top, false),
         (Edge::Bottom, false),
     ];
@@ -129,7 +141,7 @@ unsafe fn startup(application: &gtk::Application) {
     for (anchor, state) in anchors {
         w.set_anchor(anchor, state);
     }
-    let root = gtk::Box::new(gtk::Orientation::Vertical, 5);
+    let root = gtk::Box::new(gtk::Orientation::Vertical, 9);
     let result_box = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
     let mut result_frames: Vec<gtk::Frame> = Vec::new();
@@ -142,6 +154,8 @@ unsafe fn startup(application: &gtk::Application) {
     for i in 0..5 {
         let label = format!("label {}", i);
         let frame = gtk::Frame::new(Some(&label));
+        let context = frame.style_context();
+        context.add_class("result_frame");
         let gcc_right_click = gtk::GestureClick::builder()
             .button(1).propagation_phase(PropagationPhase::Capture).build();
         gcc_right_click.connect_pressed(handle_mouse_click);
@@ -159,7 +173,12 @@ unsafe fn startup(application: &gtk::Application) {
     input_field.add_controller(ec);
 
     let clock = gtk::Label::default();
-    clock.set_text(&get_time_str()  );
+    let context = clock.style_context();
+    context.add_class("clock");
+    clock.set_text(&get_time_str());
+
+    root.style_context();
+    context.add_class("root");
     root.append(&clock);
 
     let tick = move || { 
@@ -169,22 +188,20 @@ unsafe fn startup(application: &gtk::Application) {
 
     // executes the closure once every second
     glib::timeout_add_seconds_local(1, tick);
-    
     root.append(&input_field);
     root.append(&result_box);
     w.set_child(Some(&root));
     input_field.grab_focus_without_selecting();
     w.set_keyboard_mode(KeyboardMode::Exclusive);
-    w.show();
-
-    //w.add clock https://github.com/gtk-rs/gtk4-rs/blob/master/examples/clock/main.rs
+    w.show();    
     WINDOW.replace(Some(w));
 
 }
 
 struct Launcher {
     state: State,
-    done_init: bool
+    done_init: bool,
+    search_input_buffer: Option<SearchEntry>
 }
 
 #[derive(Copy, Clone, Debug)]
