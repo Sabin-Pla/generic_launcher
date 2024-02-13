@@ -31,6 +31,12 @@ mod xdg_desktop_entry;
 use xdg_desktop_entry::XdgDesktopEntry;
 use search_buffer_imp::SearchEntry;
 
+use inotify::{
+    Inotify,
+    WatchMask,
+};
+
+
 struct Launcher {
     state: State,
     done_init: bool,
@@ -128,6 +134,7 @@ fn reload_css() {
         };
     }
 }
+
 use libc::{c_void, mkfifo, fdopen, fclose, read, fprintf, 
     close, fgets, open, write, O_RDONLY, O_WRONLY, O_NONBLOCK};
 unsafe fn startup(application: &gtk::Application) {
@@ -161,9 +168,6 @@ unsafe fn startup(application: &gtk::Application) {
                 j=i+1;
             }
             launcher.fifo_path[j]= '\0' as i8;
-            println!("for pipe: {:?}", pipe_path.to_str());
-            //todo!();
-            println!("for pipe: {:?}", pipe_path.to_str());
             mkfifo(launcher.fifo_path.as_ptr() as *const i8, 0o666);
 
             let open_pipe = move |flags| {
@@ -184,29 +188,40 @@ unsafe fn startup(application: &gtk::Application) {
                 Ok(threadpool) => {
                     threadpool.push(move || {
                         std::thread::spawn(move || {
-                        let (fd, buffer) = pipe_box(O_WRONLY); 
-                        libc::write(fd, buffer.as_ptr() as *mut c_void, 1);
-                    })
-                    //    while libc::write(fd, buffer.as_ptr() as *mut c_void, 1) >= 0 {
-                     //       todo!();
-                    //    }
-                      //  todo!()
-                     // while inotifywait -e close_write launcher.css; do echo "d" > launcher.pipe; done
+                            println!("{:?}", (*path).as_ref());
+                            let mut inotify = Inotify::init().expect("Error while initializing inotify instance");
+                            inotify.watches().add((*path).as_ref(), WatchMask::MODIFY | WatchMask::CLOSE)
+                                .expect("Failed to add file watch");
+                            let (fd, buffer) = pipe_box(O_WRONLY); 
+                            let mut buffer2 = [0; 1024];
+                            loop {
+                                'outer: { 
+                                    match inotify.read_events_blocking(&mut buffer2) {
+                                        Ok(events) => {
+                                            println!("inotify event");
+
+                                            for event in events {
+                                                if !matches!(event.mask, inotify::EventMask::CLOSE_NOWRITE) {
+                                                    libc::write(fd, buffer.as_ptr() as *mut c_void, 1);
+                                                    break 'outer  
+                                                }
+                                            }
+                                        },
+                                        Err(error) => {
+                                            println!("inotify err: {:?}", error);
+                                        }
+                                    }
+                                }
+                            };
+                        })
                     });
                 }
             };
             
-            println!("-");
             let (fd, mut buffer) = open_pipe(O_RDONLY);
-            println!("------e");
             glib::source::unix_fd_add_local(
                 fd, 
                 glib::IOCondition::IN, move |_, d| {
-                    println!("------");
-                    //let (block_fd, mut buffer2) = open_pipe(O_RDONLY);
-                 //   libc::read(
-                //            block_fd, buffer2.as_ptr() as *mut c_void, 1); 
-
                     let bytes_read = libc::read(fd, buffer.as_ptr() as *mut c_void, 20); 
                     println!("bytes_read {:?}", bytes_read);
                     if bytes_read == 0 {
