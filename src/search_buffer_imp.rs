@@ -8,7 +8,6 @@ use std::time::Duration;
 use crate::search::SearchContext;
 use crate::search;
 
-
 pub struct SearchEntryBuffer { 
 	pub context: Rc<RefCell<SearchContext>>,
 	buf: Rc<RefCell<String>>,

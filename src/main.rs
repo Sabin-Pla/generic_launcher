@@ -1,3 +1,8 @@
+
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use glib::subclass::shared::RefCounted;
+use std::os::fd::AsRawFd;
 use gtk::subclass::prelude::ButtonImpl;
 use gtk::subclass::prelude::WidgetImpl;
 use gtk::subclass::prelude::ObjectSubclass;
@@ -22,13 +27,34 @@ use std::time::{Duration, SystemTime};
 
 mod search;
 mod search_buffer_imp;
-
+mod xdg_desktop_entry;
+use xdg_desktop_entry::XdgDesktopEntry;
 use search_buffer_imp::SearchEntry;
+
+struct Launcher {
+    state: State,
+    done_init: bool,
+    search_input_buffer: Option<SearchEntry>,
+    css_provider: Option<(
+        Box<PathBuf>, 
+        Arc<File>, 
+        Rc<gtk::CssProvider>)>,
+    fifo_path: [i8; 2000],
+}
+
+#[derive(Copy, Clone, Debug)]
+enum State {
+    Hidden,
+    Visible,
+    NotStarted
+}
 
 static  mut launcher: Launcher = Launcher { 
 	state: State::NotStarted, 
     search_input_buffer: None,
-	done_init: false
+	done_init: false,
+    css_provider: None,
+    fifo_path: ['\0' as i8; 2000],
 }; 
 
 thread_local! {
@@ -92,8 +118,26 @@ unsafe fn activate(application: &gtk::Application) {
 }
 
 
+fn reload_css() {
+    println!("reloading css...");
+    unsafe {
+        match &launcher.css_provider {
+            Some((path, file, provider)) => 
+                provider.load_from_path((*path).as_path()),
+            None => ()
+        };
+    }
+}
+use libc::{c_void, mkfifo, fdopen, fclose, read, fprintf, 
+    close, fgets, open, write, O_RDONLY, O_WRONLY, O_NONBLOCK};
 unsafe fn startup(application: &gtk::Application) {
+    // kill -9 $(ps -aux | grep generic | head -n 1 | tr -s ' ' | cut -d ' ' -f 2)
     println!("Starting up...");
+
+    let mut css_path = glib::user_config_dir();
+    css_path.push("generic_launcher/launcher.css");
+    let css_file = File::open(css_path.clone()).unwrap();
+    let css_file = Arc::new(css_file);
 
     let w = gtk::ApplicationWindow::new(application);
     let action_close = gio::ActionEntry::builder("close")
@@ -101,18 +145,91 @@ unsafe fn startup(application: &gtk::Application) {
             w.close();
         })
         .build();
+    w.add_action_entries([action_close]);
+
 
     let provider = gtk::CssProvider::new();
-    let mut css_path = glib::user_config_dir();
-    css_path.push("generic_launcher/launcher.css");
-    provider.load_from_path(css_path.as_path());
+    launcher.css_provider = Some((Box::new(css_path.clone()), css_file, provider.into()));
+    match &launcher.css_provider {
+        Some((path, file, provider)) =>  {
 
-    gtk::style_context_add_provider_for_display(
-        &gdk::Display::default().expect("Could not connect to a display."),
-        &provider,
-        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+            let mut pipe_path = css_path.clone();
+            pipe_path.set_extension(&"pipe");
+            let mut j = 0;
+            for (i, c) in pipe_path.to_str().unwrap().chars().enumerate() {
+                launcher.fifo_path[i] = c as i8;
+                j=i+1;
+            }
+            launcher.fifo_path[j]= '\0' as i8;
+            println!("for pipe: {:?}", pipe_path.to_str());
+            //todo!();
+            println!("for pipe: {:?}", pipe_path.to_str());
+            mkfifo(launcher.fifo_path.as_ptr() as *const i8, 0o666);
 
-    w.add_action_entries([action_close]);
+            let open_pipe = move |flags| {
+                let fd = libc::open(
+                    launcher.fifo_path.as_ptr() as *const i8, 
+                    flags);
+                if fd < 0 {
+                    println!("{:?}", &std::io::Error::last_os_error());
+                    todo!("err");
+                }
+                let buffer:  [c_char; 20] = [0; 20];
+                (fd, buffer)
+            };
+            let pipe_box = Box::new(open_pipe.clone());
+
+            match glib::ThreadPool::shared(Some(1)) {
+                Err(..) => todo!(),
+                Ok(threadpool) => {
+                    threadpool.push(move || {
+                        std::thread::spawn(move || {
+                        let (fd, buffer) = pipe_box(O_WRONLY); 
+                        libc::write(fd, buffer.as_ptr() as *mut c_void, 1);
+                    })
+                    //    while libc::write(fd, buffer.as_ptr() as *mut c_void, 1) >= 0 {
+                     //       todo!();
+                    //    }
+                      //  todo!()
+                     // while inotifywait -e close_write launcher.css; do echo "d" > launcher.pipe; done
+                    });
+                }
+            };
+            
+            println!("-");
+            let (fd, mut buffer) = open_pipe(O_RDONLY);
+            println!("------e");
+            glib::source::unix_fd_add_local(
+                fd, 
+                glib::IOCondition::IN, move |_, d| {
+                    println!("------");
+                    //let (block_fd, mut buffer2) = open_pipe(O_RDONLY);
+                 //   libc::read(
+                //            block_fd, buffer2.as_ptr() as *mut c_void, 1); 
+
+                    let bytes_read = libc::read(fd, buffer.as_ptr() as *mut c_void, 20); 
+                    println!("bytes_read {:?}", bytes_read);
+                    if bytes_read == 0 {
+                        println!("{:?}", &std::io::Error::last_os_error());
+                    }
+                    let contents = format!("{:?}", String::from_utf8(
+                        buffer.to_vec().iter().map(|i| *i as u8).collect()));
+                    print!("{}", contents);
+                    reload_css();
+
+                    glib::ControlFlow::Continue
+                }
+            );
+
+            gtk::style_context_add_provider_for_display(
+                &gdk::Display::default().expect("Could not connect to a display."),
+                provider.as_ref(),
+                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+            reload_css(); 
+        }
+        None => ()
+    };
+
     let mut buffer = search_buffer_imp::SearchEntryBuffer::new();
     buffer.context.borrow_mut().set_desktop_files(search::get_xdg_desktop_entries());
     let input_field = gtk::Entry::builder().xalign(0.5)
@@ -122,14 +239,11 @@ unsafe fn startup(application: &gtk::Application) {
     context.add_class("input_field");
     w.init_layer_shell();
 
-    // consider https://gtk-rs.org/gtk4-rs/git/docs/gdk4/prelude/trait.SurfaceExt.html connect_leave_monitor workaround
-    // also note TopLevelExt  focus(&self, timestamp: u32
-    //  inhibit_system_shortcuts for league wrapper
     w.set_layer(Layer::Overlay);
-    w.auto_exclusive_zone_enable();
-    w.set_margin(Edge::Left, 90);
-    w.set_margin(Edge::Right, 90);
-    w.set_margin(Edge::Top, 90);
+    // w.auto_exclusive_zone_enable(); for persistent topbar
+    w.set_margin(Edge::Left, 0);
+    w.set_margin(Edge::Right, 0);
+    w.set_margin(Edge::Top, 0);
 
     let anchors = [
         (Edge::Left, true),
@@ -196,19 +310,6 @@ unsafe fn startup(application: &gtk::Application) {
     w.show();    
     WINDOW.replace(Some(w));
 
-}
-
-struct Launcher {
-    state: State,
-    done_init: bool,
-    search_input_buffer: Option<SearchEntry>
-}
-
-#[derive(Copy, Clone, Debug)]
-enum State {
-    Hidden,
-    Visible,
-    NotStarted
 }
 
 fn main()  -> gtk::glib::ExitCode {

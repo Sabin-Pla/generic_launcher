@@ -1,9 +1,10 @@
 
 
 
+use crate::XdgDesktopEntry;
 use std::cell::RefCell;
 use crate::Rc;
-
+use std::ffi::OsStr;
 
 type SearchResult = Vec<usize>;
 
@@ -32,11 +33,6 @@ impl SearchContext {
 	}
 }
 
-pub struct XdgDesktopEntry {
-	display_name: String,
-	names: Vec<String>,
-	keywords: Vec<String>
-}
 
 pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
 	let data_home =std::env::var("XDG_DATA_HOME")
@@ -54,35 +50,38 @@ pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
 			d.to_owned() + "/applications"
 		});
 
-
-	let launcher_files = applications_folders.map(|folder| {
-		println!("f {}", folder);
-		std::path::Path::new(&folder).read_dir()
+	let mut added = vec!();
+	let launcher_files = applications_folders.filter_map(|folder| {
+		if !added.contains(&folder) { 
+			// filter duplicates (if folder is in both env vars)
+			added.push(folder.clone());
+			return Some(std::path::Path::new(&folder).read_dir());
+		}
+		None
 	});
+
+	let desktop_extension = Some(OsStr::new("desktop"));
+	let mut entries: Vec<XdgDesktopEntry> = vec!(); 
+
 	for path in launcher_files {
-		println!("path {:?}", path);
 		let path: std::fs::ReadDir = match path {
 			Err(..) => continue,
-			Ok(p) =>  p
+			Ok(p) => p
+
 		};
-		let contents = path.map(|p| {
-				let p = p.unwrap();
-				(	
-					p.path(),//.into_string().expect(
-			//			&format!("cannot read file with name {:?}", p.file_name())), 
-					std::fs::read_to_string(p.path())
-				)
-			}
-		);
-		for (path, contents) in contents {
-			println!("PATH +================");
-			println!("{:?}", path);
-			println!("{}", contents.unwrap());
+		let contents = path.map(|p| p.unwrap().path());
+		for path in contents {
+			if path.extension() == desktop_extension { 
+				let entry = XdgDesktopEntry::try_from(&path);
+				if entry.is_some() {
+					entries.push(entry.unwrap());
+					continue
+				} 
+				println!("could not create launcher for path {:?}", path);
+			} 
 		}
-		//let contents = std::fs::read_to_string(path.next());
 	}
-	todo!("check extra : + /");
-	todo!()
+	entries
 }
 
 pub fn refetch_search_results(context: &mut SearchContext) -> Option<SearchResult> {
@@ -106,5 +105,4 @@ pub fn chars_added_to_buffer_end(
 
 pub fn chars_were_inserted(context: &mut SearchContext) {
 	// for insertions into search buffer, just throw out the cache
-	todo!("thread this")
 }
