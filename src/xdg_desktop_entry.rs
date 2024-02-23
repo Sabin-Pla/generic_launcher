@@ -5,9 +5,10 @@ use gio::DesktopAppInfo;
 
 #[derive(Debug)]
 pub struct XdgDesktopEntry {
-	display_name: String,
-	keywords: Vec<String>,
-	app_info: Rc<DesktopAppInfo>,
+	pub display_name: String,
+	pub keywords: Vec<String>,
+	pub path: Box<Path>,
+	pub app_info: Rc<DesktopAppInfo>,
 }
 
 enum Property {
@@ -36,6 +37,7 @@ impl XdgDesktopEntry {
 		
 		Some(XdgDesktopEntry {
 			display_name,
+			path: path.into(),
 			app_info: app_info.into(),
 			keywords
 		})

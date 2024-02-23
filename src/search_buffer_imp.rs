@@ -8,22 +8,23 @@ use std::time::Duration;
 use crate::search::SearchContext;
 use crate::search;
 
+use crate::launcher;
+
 pub struct SearchEntryBuffer { 
-	pub context: Rc<RefCell<SearchContext>>,
-	buf: Rc<RefCell<String>>,
+	pub context: Rc<RefCell<SearchContext>>
 }
 
 impl SearchEntryBuffer {
 	pub fn new() -> Self { 
 		Self { 
-			context: Rc::default(), 
-			buf: Rc::default() 
+			context: Rc::default()
 		} 
 	}
 }
 
 mod inner {
-	use super::*;
+	use gtk::prelude::EditableExt;
+    use super::*;
 
     pub struct SearchEntry(pub RefCell<SearchEntryBuffer>);
 
@@ -42,14 +43,27 @@ mod inner {
     impl ObjectImpl for SearchEntry {}
     impl EntryBufferImpl for SearchEntry {
     	fn inserted_text(&self, position: u32, chars: &str) {
-    		println!("text inserted at position {position}");
-    		println!("\"{chars}\"");
-    		// let entry_buffer = self.0.borrow_mut();
-    		let mut obj = self.0.borrow_mut();
-    		*obj.buf.borrow_mut() += chars;
-    		search::refetch_search_results(&mut obj.context.borrow_mut());
-
+            let position = position as usize;
+    		println!("text inserted at position {position} {chars}");
+            let me = self.0.borrow_mut();
+            let results = search::text_inserted(&mut me.context.borrow_mut(), position, chars);
+            println!("{:#?}", results);
     	}
+
+        fn text(&self) -> glib::GString {
+            let me = self.0.borrow_mut();
+            let context = me.context.borrow_mut();
+            let buffer =  &context.buf;
+            glib::GString::from_string_unchecked(buffer.to_string())
+        }
+
+        fn deleted_text(&self, position: u32, n_chars: Option<u32>) { 
+            let me = self.0.borrow_mut();
+            let mut context = me.context.borrow_mut();
+            let buffer =  &mut context.buf;
+            buffer.drain(position as usize ..(position+n_chars.unwrap()) as usize);
+            println!("deleted text: {position}");
+        }
     }
 }
 

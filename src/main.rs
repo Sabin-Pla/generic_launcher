@@ -37,15 +37,16 @@ use inotify::{
 };
 
 
-struct Launcher {
+pub struct Launcher {
     state: State,
     done_init: bool,
-    search_input_buffer: Option<SearchEntry>,
     css_provider: Option<(
         Box<PathBuf>, 
         Arc<File>, 
         Rc<gtk::CssProvider>)>,
     fifo_path: [i8; 2000],
+    input_field: Option<Box<gtk::Entry>>,
+    pub stupid_fucking_flag: Option<Mutex<bool>>
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -55,13 +56,16 @@ enum State {
     NotStarted
 }
 
+
 static  mut launcher: Launcher = Launcher { 
 	state: State::NotStarted, 
-    search_input_buffer: None,
 	done_init: false,
     css_provider: None,
     fifo_path: ['\0' as i8; 2000],
+    input_field: None,
+    stupid_fucking_flag: None
 }; 
+
 
 thread_local! {
     static WINDOW: RefCell<Option<gtk::ApplicationWindow>> = RefCell::new(None);
@@ -138,14 +142,12 @@ fn reload_css() {
 use libc::{c_void, mkfifo, fdopen, fclose, read, fprintf, 
     close, fgets, open, write, O_RDONLY, O_WRONLY, O_NONBLOCK};
 unsafe fn startup(application: &gtk::Application) {
-    // kill -9 $(ps -aux | grep generic | head -n 1 | tr -s ' ' | cut -d ' ' -f 2)
     println!("Starting up...");
 
     let mut css_path = glib::user_config_dir();
     css_path.push("generic_launcher/launcher.css");
     let css_file = File::open(css_path.clone()).unwrap();
     let css_file = Arc::new(css_file);
-
     let w = gtk::ApplicationWindow::new(application);
     let action_close = gio::ActionEntry::builder("close")
         .activate(|w: & gtk::ApplicationWindow, _, _| {
@@ -184,7 +186,7 @@ unsafe fn startup(application: &gtk::Application) {
             let pipe_box = Box::new(open_pipe.clone());
 
             match glib::ThreadPool::shared(Some(1)) {
-                Err(..) => todo!(),
+                Err(..) => todo!("fix app crashing when unable to detect modifying css file"),
                 Ok(threadpool) => {
                     threadpool.push(move || {
                         std::thread::spawn(move || {
@@ -321,6 +323,8 @@ unsafe fn startup(application: &gtk::Application) {
     root.append(&result_box);
     w.set_child(Some(&root));
     input_field.grab_focus_without_selecting();
+    launcher.input_field = Some(Box::new(input_field));
+    launcher.stupid_fucking_flag = Some(Mutex::new(true));
     w.set_keyboard_mode(KeyboardMode::Exclusive);
     w.show();    
     WINDOW.replace(Some(w));

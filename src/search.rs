@@ -1,6 +1,7 @@
 
 
 
+use std::borrow::BorrowMut;
 use crate::XdgDesktopEntry;
 use std::cell::RefCell;
 use crate::Rc;
@@ -12,22 +13,11 @@ type SearchResult = Vec<usize>;
 pub struct SearchContext {
 	user_desktop_files: Vec<XdgDesktopEntry>,
 	result_cache: Vec<SearchResult>,
-	buf: Rc<String>
+	pub buf: String
 }
 
 
 impl SearchContext {
-	fn last_search_results(&mut self) -> Option<SearchResult> {
-		match self.result_cache.last() {
-			Some(result) => Some(result.clone()),
-			None => None,
-		}
-	}
-
-	fn refine_search_results(&mut self) {
-		
-	}
-
 	pub fn set_desktop_files(&mut self, user_desktop_files: Vec<XdgDesktopEntry>) {
 		self.user_desktop_files = user_desktop_files;
 	}
@@ -35,7 +25,7 @@ impl SearchContext {
 
 
 pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
-	let data_home =std::env::var("XDG_DATA_HOME")
+	let data_home = std::env::var("XDG_DATA_HOME")
 		.unwrap_or("/usr/local/share:/usr/share".to_string());
 	let dirs_entries = std::env::var("XDG_DATA_DIRS")
 		.unwrap_or("/.local/share".to_string());
@@ -84,25 +74,57 @@ pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
 	entries
 }
 
-pub fn refetch_search_results(context: &mut SearchContext) -> Option<SearchResult> {
-	context.refine_search_results();
-	context.last_search_results()
+fn get_search_score_for(entry: &XdgDesktopEntry, query_string: String) -> usize {
+	// println!("{}", entry.display_name);
+	if entry.display_name == query_string {
+		return 10;
+	}
+	0
 }
 
-pub fn chars_removed_from_buffer_end(
-	context: &mut SearchContext, 
-	num_chars: usize) -> SearchResult {
-	
-	todo!()
+#[derive(Eq, PartialEq, PartialOrd)]
+struct SearchCandidate {
+	xdg_enties_idx: usize,
+	score: usize
 }
 
-pub fn chars_added_to_buffer_end(
-	context: &mut SearchContext,
-	idx: usize) -> SearchResult {
-
-	todo!()
+impl std::cmp::Ord for SearchCandidate {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		self.score.cmp(&other.score)
+	}
 }
 
-pub fn chars_were_inserted(context: &mut SearchContext) {
-	// for insertions into search buffer, just throw out the cache
+fn fetch_search_results(context: &mut SearchContext) -> SearchResult {
+	let mut results: Vec<SearchCandidate> = Vec::with_capacity(context.user_desktop_files.len());
+	for (idx, entry) in  context.user_desktop_files.iter().enumerate() {
+		let score = get_search_score_for(entry, context.buf.clone());
+		if score > 0 {
+			results.push(SearchCandidate {
+				score,
+				xdg_enties_idx: idx 
+			});
+		}
+	}
+	results.sort();
+	let mut results: Vec<_> = results.iter().map(|candidate| candidate.xdg_enties_idx).collect();
+	results
+}
+
+pub fn text_inserted(context: &mut SearchContext, position: usize, chars: &str) -> SearchResult {
+	let mut buf = &mut (context.buf);
+    buf.insert_str(position, chars);
+    println!("buffer: {:#?}", &buf);
+    fetch_search_results(context)
+
+}
+
+pub fn text_deleted(context: &mut SearchContext, position: usize, n_chars: Option<u32>) -> SearchResult {
+	if let Some(n) = n_chars {
+		context.buf.drain(position..position+n as usize);
+		println!("buffer: {:#?}", &context.buf);
+		return fetch_search_results(context);
+	} ;
+	context.buf.drain(position..);
+	println!("buffer: {:#?}", &context.buf);
+	fetch_search_results(context)
 }
