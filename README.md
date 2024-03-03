@@ -7,5 +7,6 @@ Supports css styling.
 todo:
 	- launch actions
 	- refocus opened applications
-	- add option to close active fullscreen app when launching apps in Hyprland]
+	- add option to window active fullscreen app when launching apps in Hyprland]
+	- scroll up
 	- refactor

@@ -29,7 +29,7 @@ mod search;
 mod search_buffer_imp;
 mod xdg_desktop_entry;
 use xdg_desktop_entry::XdgDesktopEntry;
-use search_buffer_imp::SearchEntry;
+use search_buffer_imp::{SearchEntry, SearchEntryBuffer};
 use search::SearchContext;
 
 mod search_result_box_impl;
@@ -55,7 +55,8 @@ pub struct Launcher {
     selected_search_idx: Option<usize>,
     text_input: Option<Rc<gtk::Entry>>,
     user_desktop_files: Option<Rc<Vec<XdgDesktopEntry>>>,
-    search_context: Option<Rc<RefCell<SearchContext>>>
+    search_context: Option<Rc<RefCell<SearchContext>>>,
+    input_buffer: Option<Rc<SearchEntry>>
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -75,13 +76,16 @@ static mut launcher: Launcher = Launcher {
     selected_search_idx: None,
     text_input: None,
     user_desktop_files: None,
-    search_context: None
+    search_context: None,
+    input_buffer: None
 }; 
 
 impl Launcher {
     pub fn clear_search_results(&mut self) {
-        for f in &self.search_result_frames {
-            f.set_label(Some(""))
+        for frame in &self.search_result_frames {
+            frame.set_label(Some(""));
+            frame.set_focusable(false);
+            frame.set_visible(false);
         }
     }
 
@@ -120,7 +124,6 @@ impl Launcher {
         const end_dx: usize = RESULT_ENTRY_COUNT - 1;
         match self.selected_search_idx {
             Some(end_dx) => {
-                println!("--------");
                 let next_search_result_idx = self.search_result_frames[
                     RESULT_ENTRY_COUNT - 1].get_idx_in_search_result_vector() + 1;
                 let next_result_desktop_idx = search::get_xdg_index_from_last_search_result_idx(
@@ -152,6 +155,8 @@ impl Launcher {
             frame.set_label(Some(&display_name));
             frame.set_desktop_idx(desktop_idx);
             frame.set_idx_in_search_result_vector(search_result_idx);
+            frame.set_focusable(true);
+            frame.set_visible(true);
         }
     }
 }
@@ -168,8 +173,8 @@ fn get_time_str() -> String {
 }
 
 fn key_handler(ec: &gtk::EventControllerKey, 
-        key: gdk::Key, _: u32, _: gdk::ModifierType) -> gtk::glib::Propagation {
-    println!("key {}", key);
+        key: gdk::Key, _: u32, m: gdk::ModifierType) -> gtk::glib::Propagation {
+    println!("key {} {}", key, m);
     unsafe {
         match key {
             gdk::Key::Escape => launcher.hide_window(),
@@ -178,12 +183,45 @@ fn key_handler(ec: &gtk::EventControllerKey,
             _ => ()
         };
 
+        match launcher.selected_search_idx {
+            Some(_) => (),
+            None => return gtk::glib::Propagation::Proceed,
+        };
+
+        match key {
+            gdk::Key::BackSpace => {
+                launcher.focus_text_input();
+                let input = launcher.text_input.clone().unwrap();
+                let mut pos = (*launcher.search_context.clone().unwrap()).borrow().buf.len() as i32;
+                input.delete_text(pos -1, pos);
+                input.select_region(pos - 1, pos - 1);
+                return gtk::glib::Propagation::Proceed;
+            },
+            _ => ()
+        };
+
         let key_unicode = key.to_unicode();
         match key_unicode {
-            Some(character) => launcher.focus_text_input(),
+            Some(character) => {
+                println!("--------");
+                launcher.focus_text_input();
+                let input = launcher.text_input.clone().unwrap();
+                let mut pos = (*launcher.search_context.clone().unwrap()).borrow().buf.len() as i32;
+                input.insert_text(
+                   &character.to_string(), 
+                   &mut pos);
+                input.select_region(pos, pos);
+               // let mut search_context = launcher.search_context.clone().unwrap();
+               // let mut search_context = search_context.borrow_mut(); 
+               // search::text_inserted(&mut search_context, pos, &character.to_string())
+               // println!("{} {}", ec.forward(&(*input)), pos);
+              //  ::propogate_event(input);
+               // (*launcher.text_input.unwrap()).propagate_key_event();
+            },
             None => ()
         };
     }
+
 
     gtk::glib::Propagation::Proceed
 }
@@ -200,7 +238,6 @@ fn listbox_hover_handler(_: &gtk::EventControllerMotion, _x: f64, _y: f64) {
 unsafe fn activate(application: &gtk::Application) {
 	println!("Activating...");
 	if launcher.done_init {
-        launcher.clear_search_buffer();
 		WINDOW.with( |w| {
 			let mut w = (*w).borrow_mut();
   			let w = w.as_mut().unwrap();
@@ -215,6 +252,9 @@ unsafe fn activate(application: &gtk::Application) {
   					println!("Showing window");
   					w.set_keyboard_mode(KeyboardMode::Exclusive);
   					w.show();
+                    launcher.clear_search_results();
+                    launcher.clear_search_buffer();
+                    launcher.focus_text_input();
   					launcher.state = State::Visible;
   				}
   			}
@@ -349,8 +389,10 @@ unsafe fn startup(application: &gtk::Application) {
     (*search_context).borrow_mut().set_desktop_files(desktop_entries.clone());
     launcher.search_context = Some(search_context);
     launcher.user_desktop_files = Some(desktop_entries);
+    let search_entry = SearchEntry::new(buffer);
+    launcher.input_buffer = Some(Rc::new(search_entry));
     let mut input_field = gtk::Entry::builder().xalign(0.5)
-        .buffer(&SearchEntry::new(buffer)).build();
+        .buffer(&*launcher.input_buffer.clone().unwrap()).build();
     input_field.set_halign(gtk::Align::Center);
     let context = input_field.style_context();
     context.add_class("input_field");
@@ -406,8 +448,7 @@ unsafe fn startup(application: &gtk::Application) {
 
     let ec = gtk::EventControllerKey::builder()
         .propagation_phase(PropagationPhase::Capture).build();
-    ec.connect_key_pressed(key_handler);    //ec.forward(&input_field);
-    //input_field.add_controller(ec);
+    ec.connect_key_pressed(key_handler);
     w.add_controller(ec);
     let clock = gtk::Label::default();
     let context = clock.style_context();
@@ -437,6 +478,7 @@ unsafe fn startup(application: &gtk::Application) {
     input_field.connect_has_focus_notify(|f| {
         launcher.selected_search_idx = None;
     });
+    launcher.clear_search_results();
     WINDOW.replace(Some(w));
 
 }
