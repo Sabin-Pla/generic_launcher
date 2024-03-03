@@ -10,10 +10,12 @@ use std::ffi::OsStr;
 
 type SearchResult = Vec<usize>;
 
+const MAX_SEARCH_RESULTS: usize = 200;
+
 #[derive(Default)]
 pub struct SearchContext {
-	user_desktop_files: Rc<Vec<XdgDesktopEntry>>,
-	result_cache: Vec<SearchResult>,
+	pub user_desktop_files: Rc<Vec<XdgDesktopEntry>>,
+	result_cache: SearchResult,
 	pub buf: String
 }
 
@@ -94,7 +96,7 @@ struct SearchCandidate {
 }
 
 
-fn fetch_search_results(context: &mut SearchContext) -> SearchResult {
+fn fetch_search_results(context: &SearchContext) -> SearchResult {
 	let mut results: Vec<SearchCandidate> = Vec::with_capacity(context.user_desktop_files.len());
 	for (idx, entry) in  context.user_desktop_files.iter().enumerate() {
 		let score = get_search_score_for(entry, context.buf.clone());
@@ -103,28 +105,25 @@ fn fetch_search_results(context: &mut SearchContext) -> SearchResult {
 				score,
 				xdg_enties_idx: idx 
 			});
-			if results.len() == crate::RESULT_ENTRY_COUNT {
+			if results.len() == MAX_SEARCH_RESULTS {
 				break;
 			}
 		}
 	}
-	results.sort_by(|a, b| a.score.cmp(&b.score));
+	results.sort_by(|a, b| b.score.cmp(&a.score));
 	let mut results: Vec<_> = results.iter().map(|candidate| candidate.xdg_enties_idx).collect();
 	results
 }
 
-	pub fn display_search_results(context: &mut SearchContext, results: SearchResult) {
+pub fn display_search_results(results: SearchResult) {
 	unsafe {
 		crate::launcher.clear_search_results();
 		let mut counter = 0;
-		for idx in results.iter().rev() {
+		for (idx, desktop_idx) in results.iter().enumerate() {
 			if counter >= crate::RESULT_ENTRY_COUNT {
 				break;
 			}
-			let frame = &mut crate::launcher.search_result_frames[counter];
-			frame.set_label(
-				Some(&context.user_desktop_files[*idx].display_name));
-			frame.set_desktop_idx(*idx);
+			crate::launcher.set_search_frame(*desktop_idx, counter, idx);
 			counter += 1;
 		}
 	}
@@ -135,7 +134,9 @@ pub fn text_inserted(context: &mut SearchContext, position: usize, chars: &str) 
     buf.insert_str(position, chars);
     println!("buffer: {:#?}", &buf);
     let search_results = fetch_search_results(context);
-    display_search_results(context, search_results)
+    context.result_cache = search_results.clone();
+    drop(context);
+    display_search_results(search_results)
 
 }
 
@@ -147,5 +148,11 @@ pub fn text_deleted(context: &mut SearchContext, position: usize, n_chars: Optio
 	}
 	println!("buffer: {:#?}", &context.buf);
 	let search_results = fetch_search_results(context);
-	display_search_results(context, search_results);
+	context.result_cache = search_results.clone();
+	drop(context);
+	display_search_results(search_results);
+}
+
+pub fn get_xdg_index_from_last_search_result_idx(context: &SearchContext, idx: usize) -> Option<usize> {
+	context.result_cache.get(idx).copied()
 }

@@ -62,8 +62,8 @@ impl XdgDesktopEntry {
 		match action {
 			Some(action) => self.app_info.launch_action(action, Some(&launch_context)),
 			None => self.app_info.launch(&[], Some(&launch_context)).expect("REASON")
-
-		}
+		};
+		unsafe { crate::launcher.hide_window() };
 	}
 }
 

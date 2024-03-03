@@ -30,6 +30,7 @@ mod search_buffer_imp;
 mod xdg_desktop_entry;
 use xdg_desktop_entry::XdgDesktopEntry;
 use search_buffer_imp::SearchEntry;
+use search::SearchContext;
 
 mod search_result_box_impl;
 use search_result_box_impl::{SearchResultBoxWidget, SearchResultBox};
@@ -53,7 +54,8 @@ pub struct Launcher {
     search_result_frames: Vec<SearchResultBox>,
     selected_search_idx: Option<usize>,
     text_input: Option<Rc<gtk::Entry>>,
-    user_desktop_files: Option<Rc<Vec<XdgDesktopEntry>>>
+    user_desktop_files: Option<Rc<Vec<XdgDesktopEntry>>>,
+    search_context: Option<Rc<RefCell<SearchContext>>>
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -64,7 +66,7 @@ enum State {
 }
 
 
-static  mut launcher: Launcher = Launcher { 
+static mut launcher: Launcher = Launcher { 
 	state: State::NotStarted, 
 	done_init: false,
     css_provider: None,
@@ -72,7 +74,8 @@ static  mut launcher: Launcher = Launcher {
     search_result_frames: vec!(),
     selected_search_idx: None,
     text_input: None,
-    user_desktop_files: None
+    user_desktop_files: None,
+    search_context: None
 }; 
 
 impl Launcher {
@@ -108,6 +111,49 @@ impl Launcher {
         };
         self.user_desktop_files.clone().unwrap()[*(idx.idx_in_xdg_entries_vector.borrow())].launch(None);
     }
+
+    pub fn clear_search_buffer(&mut self) {
+        self.text_input.clone().unwrap().set_text("");
+    }
+
+    pub fn scroll_search_results_down(&mut self) {
+        const end_dx: usize = RESULT_ENTRY_COUNT - 1;
+        match self.selected_search_idx {
+            Some(end_dx) => {
+                println!("--------");
+                let next_search_result_idx = self.search_result_frames[
+                    RESULT_ENTRY_COUNT - 1].get_idx_in_search_result_vector() + 1;
+                let next_result_desktop_idx = search::get_xdg_index_from_last_search_result_idx(
+                    &self.search_context.clone().unwrap().borrow(), next_search_result_idx);
+                let next_result_desktop_idx = match next_result_desktop_idx {
+                    Some(idx) => idx,
+                    None => return
+                };
+                for i in 0..self.search_result_frames.len() - 1 {
+                    let next_box = &self.search_result_frames[i+1];
+                    let search_result_idx = next_box.get_idx_in_search_result_vector();
+                    let desktop_idx = next_box.get_desktop_idx();
+                    self.set_search_frame(desktop_idx, i, search_result_idx);
+                }
+                self.set_search_frame(
+                    next_result_desktop_idx, 
+                    RESULT_ENTRY_COUNT - 1, 
+                    next_search_result_idx);
+            },
+            _ => ()
+        }
+    }
+
+
+    pub fn set_search_frame(&mut self, desktop_idx: usize, container_idx: usize, search_result_idx: usize) {
+        unsafe {
+            let display_name = launcher.user_desktop_files.clone().unwrap()[desktop_idx].display_name.clone();
+            let frame = &mut self.search_result_frames[container_idx];
+            frame.set_label(Some(&display_name));
+            frame.set_desktop_idx(desktop_idx);
+            frame.set_idx_in_search_result_vector(search_result_idx);
+        }
+    }
 }
 
 
@@ -128,6 +174,7 @@ fn key_handler(ec: &gtk::EventControllerKey,
         match key {
             gdk::Key::Escape => launcher.hide_window(),
             gdk::Key::Return => launcher.launch_selected_application(),
+            gdk::Key::Down => launcher.scroll_search_results_down(),
             _ => ()
         };
 
@@ -153,6 +200,7 @@ fn listbox_hover_handler(_: &gtk::EventControllerMotion, _x: f64, _y: f64) {
 unsafe fn activate(application: &gtk::Application) {
 	println!("Activating...");
 	if launcher.done_init {
+        launcher.clear_search_buffer();
 		WINDOW.with( |w| {
 			let mut w = (*w).borrow_mut();
   			let w = w.as_mut().unwrap();
@@ -297,7 +345,9 @@ unsafe fn startup(application: &gtk::Application) {
 
     let mut buffer = search_buffer_imp::SearchEntryBuffer::new();
     let desktop_entries = Rc::new(search::get_xdg_desktop_entries());
-    buffer.context.borrow_mut().set_desktop_files(desktop_entries.clone());
+    let search_context = buffer.context.clone();
+    (*search_context).borrow_mut().set_desktop_files(desktop_entries.clone());
+    launcher.search_context = Some(search_context);
     launcher.user_desktop_files = Some(desktop_entries);
     let mut input_field = gtk::Entry::builder().xalign(0.5)
         .buffer(&SearchEntry::new(buffer)).build();

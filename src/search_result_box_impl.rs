@@ -8,23 +8,34 @@ use crate::launcher;
 
 pub struct SearchResultBoxWidget { 
 	pub idx_in_container: usize,
-    pub idx_in_xdg_entries_vector: Rc<RefCell<usize>>
+    pub idx_in_xdg_entries_vector: Rc<RefCell<usize>>,
+    pub idx_in_search_result_vector: Rc<RefCell<usize>>
 }
 
 impl SearchResultBoxWidget {
 	pub fn new() -> Self { 
 		Self { 
 			idx_in_container: 0,
-            idx_in_xdg_entries_vector: Rc::new(0.into())
+            idx_in_xdg_entries_vector: Rc::new(0.into()),
+            idx_in_search_result_vector: Rc::new(0.into())
 		} 
 	}
 
 	pub fn from(idx: usize) -> Self {
-		Self { idx_in_container: idx, idx_in_xdg_entries_vector: Rc::new(0.into()) }
+		Self { 
+            idx_in_container: idx, 
+            idx_in_xdg_entries_vector: Rc::new(0.into()),
+            idx_in_search_result_vector: Rc::new(0.into())
+        }
 	}
 
     pub fn set_idx_in_xdg_entries_vector(&self, idx: usize) {
         let mut rc = self.idx_in_xdg_entries_vector.borrow_mut();
+        *rc = idx;
+    } 
+
+    pub fn set_idx_in_search_result_vector(&self, idx: usize) {
+        let mut rc = self.idx_in_search_result_vector.borrow_mut();
         *rc = idx;
     } 
 }
@@ -71,4 +82,21 @@ impl SearchResultBox {
         let mut inner = self.get();
         inner.set_idx_in_xdg_entries_vector(idx);
     } 
+
+    pub fn get_desktop_idx(&self) -> usize {
+        let mut inner = self.get();
+        let val = inner.idx_in_xdg_entries_vector.borrow_mut();
+        val.clone()
+    }
+
+    pub fn set_idx_in_search_result_vector(&mut self, idx: usize) {
+        let mut inner = self.get();
+        inner.set_idx_in_search_result_vector(idx);
+    }
+
+    pub fn get_idx_in_search_result_vector(&self) -> usize {
+        let inner = self.get();
+        let val = inner.idx_in_search_result_vector.borrow_mut();
+        val.clone()
+    }
 }
