@@ -31,12 +31,15 @@ mod xdg_desktop_entry;
 use xdg_desktop_entry::XdgDesktopEntry;
 use search_buffer_imp::SearchEntry;
 
+mod search_result_box_impl;
+use search_result_box_impl::{SearchResultBoxWidget, SearchResultBox};
+
 use inotify::{
     Inotify,
     WatchMask,
 };
 
-pub const RESULT_ENTRY_COUNT: usize = 13;
+pub const RESULT_ENTRY_COUNT: usize = 4;
 
 
 pub struct Launcher {
@@ -47,7 +50,10 @@ pub struct Launcher {
         Arc<File>, 
         Rc<gtk::CssProvider>)>,
     fifo_path: [i8; 2000],
-    search_result_frames: Vec<gtk::Frame>
+    search_result_frames: Vec<SearchResultBox>,
+    selected_search_idx: Option<usize>,
+    text_input: Option<Rc<gtk::Entry>>,
+    user_desktop_files: Option<Rc<Vec<XdgDesktopEntry>>>
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -63,8 +69,46 @@ static  mut launcher: Launcher = Launcher {
 	done_init: false,
     css_provider: None,
     fifo_path: ['\0' as i8; 2000],
-    search_result_frames: vec!()
+    search_result_frames: vec!(),
+    selected_search_idx: None,
+    text_input: None,
+    user_desktop_files: None
 }; 
+
+impl Launcher {
+    pub fn clear_search_results(&mut self) {
+        for f in &self.search_result_frames {
+            f.set_label(Some(""))
+        }
+    }
+
+    pub fn focus_text_input(&mut self) {
+        self.text_input.clone().unwrap().grab_focus_without_selecting();
+    }
+
+    fn unfocus_search_result(&mut self, idx_of_focused: usize) {
+        println!("not implemented");
+        // self.search_result_frames[idx_of_focused];
+    }
+
+    pub fn hide_window(&mut self) {
+        WINDOW.with( |w| {
+                let mut w = (*w).borrow_mut();
+                let w = w.as_mut().unwrap();
+                w.hide();
+                self.state = State::Hidden;
+            }
+        );
+    }
+
+    pub fn launch_selected_application(&self) {
+        let idx = match self.selected_search_idx {
+            Some(0)|None => self.search_result_frames[0].get(),
+            Some(idx) => self.search_result_frames[idx].get()
+        };
+        self.user_desktop_files.clone().unwrap()[*(idx.idx_in_xdg_entries_vector.borrow())].launch(None);
+    }
+}
 
 
 thread_local! {
@@ -80,17 +124,20 @@ fn get_time_str() -> String {
 fn key_handler(ec: &gtk::EventControllerKey, 
         key: gdk::Key, _: u32, _: gdk::ModifierType) -> gtk::glib::Propagation {
     println!("key {}", key);
-    if key == gdk::Key::Escape {
-        unsafe {
-            WINDOW.with( |w| {
-                    let mut w = (*w).borrow_mut();
-                    let w = w.as_mut().unwrap();
-                    w.hide();
-                    launcher.state = State::Hidden;
-                }
-            )
-        }
+    unsafe {
+        match key {
+            gdk::Key::Escape => launcher.hide_window(),
+            gdk::Key::Return => launcher.launch_selected_application(),
+            _ => ()
+        };
+
+        let key_unicode = key.to_unicode();
+        match key_unicode {
+            Some(character) => launcher.focus_text_input(),
+            None => ()
+        };
     }
+
     gtk::glib::Propagation::Proceed
 }
 
@@ -101,6 +148,7 @@ fn handle_mouse_click(_: &gtk::GestureClick, _n_press: i32, _x: f64,  _y: f64) {
 fn listbox_hover_handler(_: &gtk::EventControllerMotion, _x: f64, _y: f64) {
     println!("hover  {_x} {_y}");
 }
+
 
 unsafe fn activate(application: &gtk::Application) {
 	println!("Activating...");
@@ -248,8 +296,10 @@ unsafe fn startup(application: &gtk::Application) {
     };
 
     let mut buffer = search_buffer_imp::SearchEntryBuffer::new();
-    buffer.context.borrow_mut().set_desktop_files(search::get_xdg_desktop_entries());
-    let input_field = gtk::Entry::builder().xalign(0.5)
+    let desktop_entries = Rc::new(search::get_xdg_desktop_entries());
+    buffer.context.borrow_mut().set_desktop_files(desktop_entries.clone());
+    launcher.user_desktop_files = Some(desktop_entries);
+    let mut input_field = gtk::Entry::builder().xalign(0.5)
         .buffer(&SearchEntry::new(buffer)).build();
     input_field.set_halign(gtk::Align::Center);
     let context = input_field.style_context();
@@ -275,7 +325,7 @@ unsafe fn startup(application: &gtk::Application) {
     let root = gtk::Box::new(gtk::Orientation::Vertical, 9);
     let result_box = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
-    let mut result_frames: Vec<gtk::Frame> = Vec::new();
+    let mut result_frames: Vec<SearchResultBox> = Vec::new();
 
     let mouse_controller = gtk::EventControllerMotion::new();
     let gcc_right_click = gtk::GestureClick::builder()
@@ -286,11 +336,16 @@ unsafe fn startup(application: &gtk::Application) {
     result_box.add_controller(mouse_controller);
 
     for i in 0..RESULT_ENTRY_COUNT {
-        let label = format!("");
-        let frame = gtk::Frame::new(Some(&label));
+        let frame = SearchResultBoxWidget::from(i);
+        let frame = search_result_box_impl::SearchResultBox::new(frame);
+        frame.set_focusable(true);
+        frame.set_label(Some(""));
+        frame.connect_has_focus_notify(|f| {
+            launcher.selected_search_idx = Some(f.get().idx_in_container);
+        });
         let context = frame.style_context();
         context.add_class("result_frame");
-        result_frames.push(frame);
+        result_frames.push(frame.into());
     }
 
     result_box.add_controller(gcc_right_click);
@@ -302,8 +357,8 @@ unsafe fn startup(application: &gtk::Application) {
     let ec = gtk::EventControllerKey::builder()
         .propagation_phase(PropagationPhase::Capture).build();
     ec.connect_key_pressed(key_handler);    //ec.forward(&input_field);
-    input_field.add_controller(ec);
-
+    //input_field.add_controller(ec);
+    w.add_controller(ec);
     let clock = gtk::Label::default();
     let context = clock.style_context();
     context.add_class("clock");
@@ -323,9 +378,15 @@ unsafe fn startup(application: &gtk::Application) {
     root.append(&input_field);
     root.append(&result_box);
     w.set_child(Some(&root));
+    input_field.set_focusable(true);
     input_field.grab_focus_without_selecting();
     w.set_keyboard_mode(KeyboardMode::Exclusive);
     w.show();    
+    launcher.text_input = Some(Rc::new(input_field.clone()));
+    let input_field = &mut input_field;
+    input_field.connect_has_focus_notify(|f| {
+        launcher.selected_search_idx = None;
+    });
     WINDOW.replace(Some(w));
 
 }

@@ -12,24 +12,25 @@ type SearchResult = Vec<usize>;
 
 #[derive(Default)]
 pub struct SearchContext {
-	user_desktop_files: Vec<XdgDesktopEntry>,
+	user_desktop_files: Rc<Vec<XdgDesktopEntry>>,
 	result_cache: Vec<SearchResult>,
 	pub buf: String
 }
 
 
 impl SearchContext {
-	pub fn set_desktop_files(&mut self, user_desktop_files: Vec<XdgDesktopEntry>) {
+	pub fn set_desktop_files(&mut self, user_desktop_files: Rc<Vec<XdgDesktopEntry>>) {
 		self.user_desktop_files = user_desktop_files;
 	}
 }
 
 
 pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
-	let data_home = std::env::var("XDG_DATA_HOME")
-		.unwrap_or("/usr/local/share:/usr/share".to_string());
+	let home = std::env::var("HOME").unwrap_or("~".to_string());
 	let dirs_entries = std::env::var("XDG_DATA_DIRS")
-		.unwrap_or("/.local/share".to_string());
+		.unwrap_or("/usr/local/share:/usr/share".to_string());
+	let data_home = std::env::var("XDG_DATA_HOME")
+		.unwrap_or(home + "/.local/share");
  	let applications_folders = [data_home.split(':'), dirs_entries.split(':')]
 		.into_iter()
 		.flatten()
@@ -43,6 +44,7 @@ pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
 
 	let mut added = vec!();
 	let launcher_files = applications_folders.filter_map(|folder| {
+		println!("{:?}", folder);
 		if !added.contains(&folder) { 
 			// filter duplicates (if folder is in both env vars)
 			added.push(folder.clone());
@@ -72,34 +74,29 @@ pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
 			} 
 		}
 	}
+	println!("{:#?}", entries);
 	entries
 }
 
-fn get_search_score_for(entry: &XdgDesktopEntry, query_string: String) -> usize {
-	let app_name = &entry.display_name;
-	let name_length = app_name.len() as f64;
+fn get_search_score_for(entry: &XdgDesktopEntry, mut query_string: String) -> usize {
+	let mut app_name = entry.display_name.clone();
+	app_name.make_ascii_lowercase();
+	query_string.make_ascii_lowercase();
 	match app_name.find(&query_string) {
-		Some(idx) => (query_string.len() as f64 * (name_length - idx as f64) /  name_length) as usize,
+		Some(idx) => std::usize::MAX - idx,
 		None => 0
 	}
 }
 
-#[derive(Eq, PartialEq, PartialOrd)]
 struct SearchCandidate {
 	xdg_enties_idx: usize,
 	score: usize
 }
 
-impl std::cmp::Ord for SearchCandidate {
-	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		self.score.cmp(&other.score)
-	}
-}
 
 fn fetch_search_results(context: &mut SearchContext) -> SearchResult {
 	let mut results: Vec<SearchCandidate> = Vec::with_capacity(context.user_desktop_files.len());
 	for (idx, entry) in  context.user_desktop_files.iter().enumerate() {
-		println!("{:?}", entry);
 		let score = get_search_score_for(entry, context.buf.clone());
 		if score > 0 {
 			results.push(SearchCandidate {
@@ -111,17 +108,24 @@ fn fetch_search_results(context: &mut SearchContext) -> SearchResult {
 			}
 		}
 	}
-	results.sort();
+	results.sort_by(|a, b| a.score.cmp(&b.score));
 	let mut results: Vec<_> = results.iter().map(|candidate| candidate.xdg_enties_idx).collect();
-	println!("results");
 	results
 }
 
-pub fn display_search_results(context: &mut SearchContext, results: SearchResult) {
-	for (counter, idx) in results.iter().enumerate().rev() {
-		unsafe {
-			crate::launcher.search_result_frames[counter].set_label(
+	pub fn display_search_results(context: &mut SearchContext, results: SearchResult) {
+	unsafe {
+		crate::launcher.clear_search_results();
+		let mut counter = 0;
+		for idx in results.iter().rev() {
+			if counter >= crate::RESULT_ENTRY_COUNT {
+				break;
+			}
+			let frame = &mut crate::launcher.search_result_frames[counter];
+			frame.set_label(
 				Some(&context.user_desktop_files[*idx].display_name));
+			frame.set_desktop_idx(*idx);
+			counter += 1;
 		}
 	}
 }

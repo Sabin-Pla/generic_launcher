@@ -47,7 +47,6 @@ mod inner {
     		println!("text inserted at position {position} {chars}");
             let me = self.0.borrow_mut();
             let results = search::text_inserted(&mut me.context.borrow_mut(), position, chars);
-            println!("{:#?}", results);
     	}
 
         fn text(&self) -> glib::GString {
@@ -64,6 +63,10 @@ mod inner {
             search::text_deleted(&mut context, position, n_chars);
             println!("deleted text: {position}");
         }
+
+        fn length(&self) -> u32 {
+            self.0.borrow_mut().context.borrow_mut().buf.len().try_into().unwrap()
+        } 
     }
 }
 

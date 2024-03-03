@@ -15,14 +15,12 @@ entry {
 .clock {
 	font-size: 22px;
 	color: whitesmoke;
-	text-decoration: bold;
 }
 
 .input_field {
 	color: white;
 	border: None;
 	font-size: 25px;
-	text-decoration: bold;
 	background-color: #3d3846;
 	min-width: 800px;
 }
@@ -37,6 +35,10 @@ entry {
 	background-color: #77767b;
 	border-radius: 1px;
 	padding: 2px;
+}
+
+.result_frame:focus {
+	outline: 2px solid #d8d8d8;
 }
 
 .root {
