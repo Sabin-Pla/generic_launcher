@@ -36,6 +36,8 @@ use inotify::{
     WatchMask,
 };
 
+pub const RESULT_ENTRY_COUNT: usize = 13;
+
 
 pub struct Launcher {
     state: State,
@@ -45,8 +47,7 @@ pub struct Launcher {
         Arc<File>, 
         Rc<gtk::CssProvider>)>,
     fifo_path: [i8; 2000],
-    input_field: Option<Box<gtk::Entry>>,
-    pub stupid_fucking_flag: Option<Mutex<bool>>
+    search_result_frames: Vec<gtk::Frame>
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -62,8 +63,7 @@ static  mut launcher: Launcher = Launcher {
 	done_init: false,
     css_provider: None,
     fifo_path: ['\0' as i8; 2000],
-    input_field: None,
-    stupid_fucking_flag: None
+    search_result_frames: vec!()
 }; 
 
 
@@ -258,9 +258,9 @@ unsafe fn startup(application: &gtk::Application) {
 
     w.set_layer(Layer::Overlay);
     // w.auto_exclusive_zone_enable(); for persistent topbar
-    w.set_margin(Edge::Left, 0);
-    w.set_margin(Edge::Right, 0);
-    w.set_margin(Edge::Top, 0);
+    w.set_margin(Edge::Left, 800);
+    w.set_margin(Edge::Right, 800);
+    w.set_margin(Edge::Top, 400);
 
     let anchors = [
         (Edge::Left, true),
@@ -278,25 +278,26 @@ unsafe fn startup(application: &gtk::Application) {
     let mut result_frames: Vec<gtk::Frame> = Vec::new();
 
     let mouse_controller = gtk::EventControllerMotion::new();
+    let gcc_right_click = gtk::GestureClick::builder()
+            .button(1).propagation_phase(PropagationPhase::Capture).build();
+        gcc_right_click.connect_pressed(handle_mouse_click);
     mouse_controller.connect_motion(listbox_hover_handler);
     // mouse_controller.connect_stylus_only_notify(listbox_hover_handler_new);
     result_box.add_controller(mouse_controller);
 
-    for i in 0..5 {
-        let label = format!("label {}", i);
+    for i in 0..RESULT_ENTRY_COUNT {
+        let label = format!("");
         let frame = gtk::Frame::new(Some(&label));
         let context = frame.style_context();
         context.add_class("result_frame");
-        let gcc_right_click = gtk::GestureClick::builder()
-            .button(1).propagation_phase(PropagationPhase::Capture).build();
-        gcc_right_click.connect_pressed(handle_mouse_click);
-        frame.add_controller(gcc_right_click);
         result_frames.push(frame);
     }
 
-    for f in result_frames  {
-        result_box.append(&f);
+    result_box.add_controller(gcc_right_click);
+    for f in &result_frames  {
+        result_box.append(f);
     }
+    launcher.search_result_frames = result_frames;
 
     let ec = gtk::EventControllerKey::builder()
         .propagation_phase(PropagationPhase::Capture).build();
@@ -323,8 +324,6 @@ unsafe fn startup(application: &gtk::Application) {
     root.append(&result_box);
     w.set_child(Some(&root));
     input_field.grab_focus_without_selecting();
-    launcher.input_field = Some(Box::new(input_field));
-    launcher.stupid_fucking_flag = Some(Mutex::new(true));
     w.set_keyboard_mode(KeyboardMode::Exclusive);
     w.show();    
     WINDOW.replace(Some(w));
@@ -335,7 +334,7 @@ fn main()  -> gtk::glib::ExitCode {
     unsafe {
         launcher.state = State::Visible;
         let application = gtk::Application::new(
-            Some("sh.wmww.generic_launcher_example"), Default::default());
+            Some("www.generic_launcher_example"), Default::default());
         application.set_accels_for_action("win.close", &["<Ctrl>C"]);
         application.connect_startup(|app| {
             startup(app) 

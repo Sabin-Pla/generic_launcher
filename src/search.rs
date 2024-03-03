@@ -1,6 +1,7 @@
 
 
 
+use gtk::prelude::FrameExt;
 use std::borrow::BorrowMut;
 use crate::XdgDesktopEntry;
 use std::cell::RefCell;
@@ -75,11 +76,12 @@ pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
 }
 
 fn get_search_score_for(entry: &XdgDesktopEntry, query_string: String) -> usize {
-	// println!("{}", entry.display_name);
-	if entry.display_name == query_string {
-		return 10;
+	let app_name = &entry.display_name;
+	let name_length = app_name.len() as f64;
+	match app_name.find(&query_string) {
+		Some(idx) => (query_string.len() as f64 * (name_length - idx as f64) /  name_length) as usize,
+		None => 0
 	}
-	0
 }
 
 #[derive(Eq, PartialEq, PartialOrd)]
@@ -97,34 +99,49 @@ impl std::cmp::Ord for SearchCandidate {
 fn fetch_search_results(context: &mut SearchContext) -> SearchResult {
 	let mut results: Vec<SearchCandidate> = Vec::with_capacity(context.user_desktop_files.len());
 	for (idx, entry) in  context.user_desktop_files.iter().enumerate() {
+		println!("{:?}", entry);
 		let score = get_search_score_for(entry, context.buf.clone());
 		if score > 0 {
 			results.push(SearchCandidate {
 				score,
 				xdg_enties_idx: idx 
 			});
+			if results.len() == crate::RESULT_ENTRY_COUNT {
+				break;
+			}
 		}
 	}
 	results.sort();
 	let mut results: Vec<_> = results.iter().map(|candidate| candidate.xdg_enties_idx).collect();
+	println!("results");
 	results
 }
 
-pub fn text_inserted(context: &mut SearchContext, position: usize, chars: &str) -> SearchResult {
+pub fn display_search_results(context: &mut SearchContext, results: SearchResult) {
+	for (counter, idx) in results.iter().enumerate().rev() {
+		unsafe {
+			crate::launcher.search_result_frames[counter].set_label(
+				Some(&context.user_desktop_files[*idx].display_name));
+		}
+	}
+}
+
+pub fn text_inserted(context: &mut SearchContext, position: usize, chars: &str) {
 	let mut buf = &mut (context.buf);
     buf.insert_str(position, chars);
     println!("buffer: {:#?}", &buf);
-    fetch_search_results(context)
+    let search_results = fetch_search_results(context);
+    display_search_results(context, search_results)
 
 }
 
-pub fn text_deleted(context: &mut SearchContext, position: usize, n_chars: Option<u32>) -> SearchResult {
+pub fn text_deleted(context: &mut SearchContext, position: usize, n_chars: Option<u32>) {
 	if let Some(n) = n_chars {
 		context.buf.drain(position..position+n as usize);
-		println!("buffer: {:#?}", &context.buf);
-		return fetch_search_results(context);
-	} ;
-	context.buf.drain(position..);
+	} else {
+		context.buf.drain(position..);
+	}
 	println!("buffer: {:#?}", &context.buf);
-	fetch_search_results(context)
+	let search_results = fetch_search_results(context);
+	display_search_results(context, search_results);
 }

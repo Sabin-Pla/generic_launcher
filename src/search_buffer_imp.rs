@@ -59,9 +59,9 @@ mod inner {
 
         fn deleted_text(&self, position: u32, n_chars: Option<u32>) { 
             let me = self.0.borrow_mut();
+            let position = position as usize;
             let mut context = me.context.borrow_mut();
-            let buffer =  &mut context.buf;
-            buffer.drain(position as usize ..(position+n_chars.unwrap()) as usize);
+            search::text_deleted(&mut context, position, n_chars);
             println!("deleted text: {position}");
         }
     }

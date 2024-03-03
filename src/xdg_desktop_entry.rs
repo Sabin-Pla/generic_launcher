@@ -1,7 +1,11 @@
 
+use gio::AppInfo;
+use gtk::prelude::AppInfoExt;
 use std::rc::Rc;
 use std::path::Path;
 use gio::DesktopAppInfo;
+use gio::prelude::AppLaunchContextExt;
+use gio::AppLaunchContext;
 
 #[derive(Debug)]
 pub struct XdgDesktopEntry {
@@ -21,6 +25,7 @@ enum Property {
 impl XdgDesktopEntry {
 	pub fn try_from(path: &Path) -> Option<Self> {			
 		let app_info = if let Some(app_info) = DesktopAppInfo::from_filename(path) {
+			println!("{}", app_info);
 			app_info
 		}  else {
 			return None;
@@ -28,12 +33,18 @@ impl XdgDesktopEntry {
 
 		let keywords: Vec<String> = app_info.keywords()
 				.iter().map(|g_string| g_string.to_string()).collect();
-		let display_name =  match app_info.generic_name() {
+		let display_name =  match app_info.locale_string("Name") {
 			Some(name) => name.to_string(),
 			None => app_info.filename()
 				.expect("filename was passed to constructor").into_os_string().into_string()
 				.expect("filename must not contain invalid character range")
 		};
+
+		println!("{:?}", path.to_str());
+
+		if path.to_str() == Some("/usr/share/applications/sublime_text.desktop") {
+			println!("{:?}", app_info.list_actions());
+		}
 		
 		Some(XdgDesktopEntry {
 			display_name,
@@ -42,5 +53,23 @@ impl XdgDesktopEntry {
 			keywords
 		})
 	}	
+
+	pub fn on_app_launch(
+			launch_context: &AppLaunchContext, 
+			app_info: &AppInfo, 
+			launched_event: &gtk::glib::Variant	) {
+		// https://docs.gtk.org/gio/signal.AppLaunchContext.launched.html get pid  
+		println!("{:?}", launched_event);
+	}
+
+	pub fn launch(&self, action: Option<&str>) {
+		let launch_context = gio::AppLaunchContext::new();
+		launch_context.connect_launched(Self::on_app_launch);
+		match action {
+			Some(action) => self.app_info.launch_action(action, Some(&launch_context)),
+			None => self.app_info.launch(&[], Some(&launch_context)).expect("REASON")
+
+		}
+	}
 }
 
