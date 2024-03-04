@@ -82,10 +82,10 @@ static mut launcher: Launcher = Launcher {
 
 impl Launcher {
     pub fn clear_search_results(&mut self) {
-        for frame in &self.search_result_frames {
-            frame.set_label(Some(""));
-            frame.set_focusable(false);
-            frame.set_visible(false);
+        for result_box in &self.search_result_frames {
+            //frame.set_label(Some(""));
+            result_box.set_focusable(false);
+            result_box.set_visible(false);
         }
     }
 
@@ -113,7 +113,7 @@ impl Launcher {
             Some(0)|None => self.search_result_frames[0].get(),
             Some(idx) => self.search_result_frames[idx].get()
         };
-        self.user_desktop_files.clone().unwrap()[*(idx.idx_in_xdg_entries_vector.borrow())].launch(None);
+        self.user_desktop_files.clone().unwrap()[idx.idx_in_xdg_entries_vector].launch(None);
     }
 
     pub fn clear_search_buffer(&mut self) {
@@ -150,13 +150,24 @@ impl Launcher {
 
     pub fn set_search_frame(&mut self, desktop_idx: usize, container_idx: usize, search_result_idx: usize) {
         unsafe {
-            let display_name = launcher.user_desktop_files.clone().unwrap()[desktop_idx].display_name.clone();
-            let frame = &mut self.search_result_frames[container_idx];
-            frame.set_label(Some(&display_name));
-            frame.set_desktop_idx(desktop_idx);
-            frame.set_idx_in_search_result_vector(search_result_idx);
-            frame.set_focusable(true);
-            frame.set_visible(true);
+            let desktop_entry = &launcher.user_desktop_files.clone().unwrap()[desktop_idx];
+            let display_name = desktop_entry.display_name.clone();
+            let result_box = &mut self.search_result_frames[container_idx];
+            gtk::prelude::ButtonExt::set_label(result_box, &display_name);
+            //frame.set_label(Some(&display_name));
+            result_box.set_desktop_idx(desktop_idx);
+            result_box.set_idx_in_search_result_vector(search_result_idx);
+            result_box.set_focusable(true);
+            result_box.set_visible(true);
+            let app_info = desktop_entry.app_info.clone();
+            if app_info.has_key("Icon") {
+                let icon_name = app_info.locale_string("Icon").unwrap();
+                let image = gtk::Image::from_icon_name(&icon_name);
+                //println!("icon name {} {}", icon_name, image.uses_fallback());
+                //let root = gtk::Grid::builder().hexpand(true).vexpand(true).column_spacing(100).build();
+                //root.attach(&image, 1, 1, 3, 20);
+                //result_box.set_icon(&icon_name);
+            }
         }
     }
 }
@@ -225,15 +236,6 @@ fn key_handler(ec: &gtk::EventControllerKey,
 
     gtk::glib::Propagation::Proceed
 }
-
-fn handle_mouse_click(_: &gtk::GestureClick, _n_press: i32, _x: f64,  _y: f64) {
-    println!("click  {_n_press} {_x} {_y}");
-}
-
-fn listbox_hover_handler(_: &gtk::EventControllerMotion, _x: f64, _y: f64) {
-    println!("hover  {_x} {_y}");
-}
-
 
 unsafe fn activate(application: &gtk::Application) {
 	println!("Activating...");
@@ -419,28 +421,22 @@ unsafe fn startup(application: &gtk::Application) {
 
     let mut result_frames: Vec<SearchResultBox> = Vec::new();
 
-    let mouse_controller = gtk::EventControllerMotion::new();
-    let gcc_right_click = gtk::GestureClick::builder()
-            .button(1).propagation_phase(PropagationPhase::Capture).build();
-        gcc_right_click.connect_pressed(handle_mouse_click);
-    mouse_controller.connect_motion(listbox_hover_handler);
-    // mouse_controller.connect_stylus_only_notify(listbox_hover_handler_new);
-    result_box.add_controller(mouse_controller);
-
     for i in 0..RESULT_ENTRY_COUNT {
-        let frame = SearchResultBoxWidget::from(i);
-        let frame = search_result_box_impl::SearchResultBox::new(frame);
-        frame.set_focusable(true);
-        frame.set_label(Some(""));
-        frame.connect_has_focus_notify(|f| {
+        let result_box = SearchResultBoxWidget::from(i);
+        let result_box = search_result_box_impl::SearchResultBox::new(result_box);
+        result_box.set_focusable(true);
+        //result_box.set_has_frame(true);
+        result_box.set_focus_on_click(true);
+        gtk::prelude::ButtonExt::set_label(&result_box, &"");
+        // frame.set_label(Some(""));
+        result_box.connect_has_focus_notify(|f| {
             launcher.selected_search_idx = Some(f.get().idx_in_container);
         });
-        let context = frame.style_context();
-        context.add_class("result_frame");
-        result_frames.push(frame.into());
+        let context = result_box.style_context();
+        context.add_class("result_box");
+        result_frames.push(result_box.into());
     }
 
-    result_box.add_controller(gcc_right_click);
     for f in &result_frames  {
         result_box.append(f);
     }
@@ -475,6 +471,7 @@ unsafe fn startup(application: &gtk::Application) {
     w.show();    
     launcher.text_input = Some(Rc::new(input_field.clone()));
     let input_field = &mut input_field;
+    input_field.set_placeholder_text(Some("Applications"));
     input_field.connect_has_focus_notify(|f| {
         launcher.selected_search_idx = None;
     });

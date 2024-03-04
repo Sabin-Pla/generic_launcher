@@ -29,16 +29,18 @@ entry {
   color: black;
 }
 
-.result_frame {
-	color: white;
+.result_box {
+	color: whitesmoke;
 	font-size: 20px;
+	background-image: none;
 	background-color: #335593;
 	border-radius: 1px;
 	padding: 2px;
 }
 
-.result_frame:focus {
-	outline: 2px solid #d8d8d8;
+.result_box:focus {
+	transition: 0.03s linear;
+	outline: 3px solid #d8d8d8;
 	background-color: #3366aa;
 }
 
