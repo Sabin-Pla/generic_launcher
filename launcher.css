@@ -6,25 +6,37 @@ window {
  	background-color: #3d3846;
 }
 
-entry {
-	border: none;
+.alarm_clock {
+	margin-top: 10px;
+	margin-right: 10px;
 }
 
-
 .clock {
+	margin-top: 10px;
 	font-size: 22px;
-	color: whitesmoke;
+	color: #aaaaaa;
 }
 
 .input_field {
 	color: white;
-	border: None;
 	font-size: 25px;
 	background-color: #3d3846;
 	min-width: 800px;
 }
 
-.input_field selection {
+.input_field:hover {
+	border-color: white;
+}
+
+entry {
+  /* border-color: black; */
+  /* seems it's impossible to set activation border colour in the application  */
+  /* set the system-wide settings to change it: */
+  /* 	gsettings set org.gnome.desktop.interface gtk-theme <file in /usr/share/themes>*/
+}
+
+
+entry selection {
   background-color: #d8d8d8;
   color: black;
 }

@@ -40,7 +40,7 @@ use inotify::{
     WatchMask,
 };
 
-pub const RESULT_ENTRY_COUNT: usize = 4;
+pub const RESULT_ENTRY_COUNT: usize = 5;
 
 
 pub struct Launcher {
@@ -154,7 +154,6 @@ impl Launcher {
             let display_name = desktop_entry.display_name.clone();
             let result_box = &mut self.search_result_frames[container_idx];
             gtk::prelude::ButtonExt::set_label(result_box, &display_name);
-            //frame.set_label(Some(&display_name));
             result_box.set_desktop_idx(desktop_idx);
             result_box.set_idx_in_search_result_vector(search_result_idx);
             result_box.set_focusable(true);
@@ -425,7 +424,6 @@ unsafe fn startup(application: &gtk::Application) {
         let result_box = SearchResultBoxWidget::from(i);
         let result_box = search_result_box_impl::SearchResultBox::new(result_box);
         result_box.set_focusable(true);
-        //result_box.set_has_frame(true);
         result_box.set_focus_on_click(true);
         gtk::prelude::ButtonExt::set_label(&result_box, &"");
         // frame.set_label(Some(""));
@@ -451,9 +449,18 @@ unsafe fn startup(application: &gtk::Application) {
     context.add_class("clock");
     clock.set_text(&get_time_str());
 
-    root.style_context();
+    let context = root.style_context();
     context.add_class("root");
-    root.append(&clock);
+    let topbar = gtk::CenterBox::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .build();
+    topbar.set_center_widget(Some(&clock));
+    let clock_icon = gtk::Image::from_file("alarm-clock-svgrepo-com.svg");
+    clock_icon.set_icon_size(gtk::IconSize::Large);
+    let context = clock_icon.style_context();
+    context.add_class("alarm_clock");
+    // topbar.set_end_widget(Some(&clock_icon));
+    root.append(&topbar);
 
     let tick = move || { 
         clock.set_text(&get_time_str());
