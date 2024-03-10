@@ -2,8 +2,7 @@
 ## Generic Launcher
 
 A generic applications launcher. 
-Supports css styling.
-Copy the css file or create a symbolic link to `$XDG_CONFIG_HOME/generic_launcher/launcher.css`
+Supports css styling through symlink to css file created in `$XDG_CONFIG_HOME/generic_launcher/launcher.css`
 
 Depends on `inotifytools` (todo: make this dependency optional for hotswapping css)
 
@@ -18,6 +17,8 @@ todo:
 	- refactor
 
 ![Demo:](docs/demo_screenshot.jpg)
+
+The default CSS used in the screenshot uses the default system theme, in this case [Andromeda](https://www.gnome-look.org/p/2039961)
 
 ## Attributions
 

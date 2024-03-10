@@ -215,7 +215,6 @@ fn key_handler(ec: &gtk::EventControllerKey,
         let key_unicode = key.to_unicode();
         match key_unicode {
             Some(character) => {
-                println!("--------");
                 launcher.focus_text_input();
                 let input = launcher.text_input.clone().unwrap();
                 let mut pos = (*launcher.search_context.clone().unwrap()).borrow().buf.len() as i32;
@@ -285,7 +284,15 @@ unsafe fn startup(application: &gtk::Application) {
 
     let mut css_path = glib::user_config_dir();
     css_path.push("generic_launcher/launcher.css");
-    let css_file = File::open(css_path.clone()).unwrap();
+    let css_file = match File::open(css_path.clone()) {
+        Ok(f) => f,
+        Err(..) => {
+            let mut cwd = std::env::current_dir().expect("Error accessing CWD");
+            cwd.push("launcher.css");
+            std::os::unix::fs::symlink(cwd, css_path.clone());
+            File::open(css_path.clone()).unwrap()
+        }
+    };
     let css_file = Arc::new(css_file);
     let w = gtk::ApplicationWindow::new(application);
     let action_close = gio::ActionEntry::builder("close")
@@ -401,7 +408,7 @@ unsafe fn startup(application: &gtk::Application) {
         .buffer(&*launcher.input_buffer.clone().unwrap()).build();
     input_field.set_halign(gtk::Align::Center);
     let context = input_field.style_context();
-    context.add_class("input_field");
+    context.add_class("input-field");
     w.init_layer_shell();
 
     w.set_layer(Layer::Overlay);
@@ -436,7 +443,7 @@ unsafe fn startup(application: &gtk::Application) {
             launcher.selected_search_idx = Some(f.get().idx_in_container.try_into().unwrap());
         });
         let context = result_box.style_context();
-        context.add_class("result_box");
+        context.add_class("result-box");
         result_frames.push(result_box.into());
     }
 
