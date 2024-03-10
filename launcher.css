@@ -1,51 +1,53 @@
+@define-color text-color @theme_text_color;
 
+@define-color main-color @theme_bg_color;
+
+@define-color result-color @theme_bg_color;
+@define-color result-selected @theme_selected_fg_color;
+@define-color result-selected-text @theme_selected_bg_color;
+
+@define-color button-inactive @insensitive_fg_color;
+
+@define-color selected-bg @theme_selected_bg_color;
+@define-color accent-color @theme_fg_color;
+@define-color box-outline-color @theme_bg_color;
 
 window {
 	padding: 10px;
 	border: 1px solid grey;
- 	background-color: #3d3846;
+ 	background-color: @main-color;
 }
 
-.alarm_clock {
+.screenshot-button {
+	color: @button-inactive;
 	margin-top: 10px;
 	margin-right: 10px;
+}
+
+.screenshot-button:focus {
+	color: @result-selected-text;
 }
 
 .clock {
 	margin-top: 10px;
 	font-size: 22px;
-	color: #aaaaaa;
+	color: @text-color;
 }
 
 .input_field {
-	color: white;
 	font-size: 25px;
-	background-color: #3d3846;
+	background-color: @main-color;
 	min-width: 800px;
+	outline: @box-outline-color solid 2px;
+	border-radius: px;
 }
 
-.input_field:hover {
-	border-color: white;
-}
-
-entry {
-  /* border-color: black; */
-  /* seems it's impossible to set activation border colour in the application  */
-  /* set the system-wide settings to change it: */
-  /* 	gsettings set org.gnome.desktop.interface gtk-theme <file in /usr/share/themes>*/
-}
-
-
-entry selection {
-  background-color: #d8d8d8;
-  color: black;
-}
 
 .result_box {
-	color: whitesmoke;
+	color: @text-color;
 	font-size: 20px;
 	background-image: none;
-	background-color: #335593;
+	background-color: @result-color;
 	border-radius: 1px;
 	padding: 2px;
 }
@@ -53,10 +55,14 @@ entry selection {
 .result_box:focus {
 	transition: 0.03s linear;
 	outline: 3px solid #d8d8d8;
-	background-color: #3366aa;
+	background-color: @result-selected;
+	color: @result-selected-text;
 }
 
 .root {
-	border-top: 1px solid #77767b;
-	border-bottom: 1px solid #77767b;
+	border-top: 1px solid @accent-color;
+	border-bottom: 1px solid @accent-color;
+	padding-bottom: 10px;
 }
+
+

@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Screenshot
+Exec=/bin/sh -c 'fname="$EPOCHSECONDS"_grim.png file="$(xdg-user-dir PICTURES)/Screenshots/$fname"; grim -g "$(slurp)" "$file"; echo "$file" | wl-copy'
+GenericLauncherCustom=true
+Type=Application
