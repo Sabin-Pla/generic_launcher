@@ -32,6 +32,12 @@ impl XdgDesktopEntry {
 
 		let keywords: Vec<String> = app_info.keywords()
 				.iter().map(|g_string| g_string.to_string()).collect();
+		if let Some(bool_setting) = app_info.locale_string("NoDisplay") {
+			if bool_setting == "true" {
+				return None;
+			}
+		}
+
 		let display_name =  match app_info.locale_string("Name") {
 			Some(name) => name.to_string(),
 			None => app_info.filename()

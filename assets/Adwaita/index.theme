@@ -1,0 +1,13 @@
+[Icon Theme]
+Name=Adwaita
+
+# Directory list
+Directories=symbolic/legacy
+
+
+[symbolic/legacy]
+Context=Legacy
+Size=16
+MinSize=8
+MaxSize=512
+Type=Scalable

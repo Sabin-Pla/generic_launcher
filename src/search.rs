@@ -27,7 +27,7 @@ impl SearchContext {
 }
 
 
-pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
+pub fn get_xdg_desktop_entries() -> (Vec<XdgDesktopEntry>, Vec<XdgDesktopEntry>) {
 	let home = std::env::var("HOME").unwrap_or("~".to_string());
 	let dirs_entries = std::env::var("XDG_DATA_DIRS")
 		.unwrap_or("/usr/local/share:/usr/share".to_string());
@@ -45,7 +45,7 @@ pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
 		});
 
 	let mut added = vec!();
-	let launcher_files = applications_folders.filter_map(|folder| {
+	let mut launcher_files: Vec<_> = applications_folders.filter_map(|folder| {
 		println!("{:?}", folder);
 		if !added.contains(&folder) { 
 			// filter duplicates (if folder is in both env vars)
@@ -53,10 +53,16 @@ pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
 			return Some(std::path::Path::new(&folder).read_dir());
 		}
 		None
-	});
+	}).collect();
+
+
+	let mut custom_launcher = std::env::current_dir().expect("Error accessing CWD");
+	custom_launcher.push("misc");
+	launcher_files.push(custom_launcher.read_dir());
 
 	let desktop_extension = Some(OsStr::new("desktop"));
 	let mut entries: Vec<XdgDesktopEntry> = vec!(); 
+	let mut custom_entries: Vec<XdgDesktopEntry> = vec!();
 
 	for path in launcher_files {
 		let path: std::fs::ReadDir = match path {
@@ -68,8 +74,13 @@ pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
 		for path in contents {
 			if path.extension() == desktop_extension { 
 				let entry = XdgDesktopEntry::try_from(&path);
-				if entry.is_some() {
-					entries.push(entry.unwrap());
+				if let Some(entry) = entry {
+					if let Some(bool_setting) = entry
+							.app_info.locale_string("GenericLauncherCustom") {
+						custom_entries.push(entry);
+						continue
+					}
+					entries.push(entry);
 					continue
 				} 
 				println!("could not create launcher for path {:?}", path);
@@ -77,7 +88,7 @@ pub fn get_xdg_desktop_entries() -> Vec<XdgDesktopEntry> {
 		}
 	}
 	println!("{:#?}", entries);
-	entries
+	(entries, custom_entries)
 }
 
 fn get_search_score_for(entry: &XdgDesktopEntry, mut query_string: String) -> usize {

@@ -1,4 +1,5 @@
 
+use glib::StrV;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use glib::subclass::shared::RefCounted;
@@ -52,11 +53,12 @@ pub struct Launcher {
         Rc<gtk::CssProvider>)>,
     fifo_path: [i8; 2000],
     search_result_frames: Vec<SearchResultBox>,
-    selected_search_idx: Option<usize>,
+    selected_search_idx: Option<isize>,
     text_input: Option<Rc<gtk::Entry>>,
     user_desktop_files: Option<Rc<Vec<XdgDesktopEntry>>>,
     search_context: Option<Rc<RefCell<SearchContext>>>,
-    input_buffer: Option<Rc<SearchEntry>>
+    input_buffer: Option<Rc<SearchEntry>>,
+    custom_launchers: Option<Rc<Vec<XdgDesktopEntry>>>
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -77,7 +79,8 @@ static mut launcher: Launcher = Launcher {
     text_input: None,
     user_desktop_files: None,
     search_context: None,
-    input_buffer: None
+    input_buffer: None,
+    custom_launchers: None
 }; 
 
 impl Launcher {
@@ -90,12 +93,7 @@ impl Launcher {
     }
 
     pub fn focus_text_input(&mut self) {
-        self.text_input.clone().unwrap().grab_focus_without_selecting();
-    }
-
-    fn unfocus_search_result(&mut self, idx_of_focused: usize) {
-        println!("not implemented");
-        // self.search_result_frames[idx_of_focused];
+        self.text_input.clone().unwrap().grab_focus();
     }
 
     pub fn hide_window(&mut self) {
@@ -110,8 +108,12 @@ impl Launcher {
 
     pub fn launch_selected_application(&self) {
         let idx = match self.selected_search_idx {
+            Some(-1) => {
+                self.custom_launchers.clone().unwrap()[0].launch(None);
+                return;
+            }, 
             Some(0)|None => self.search_result_frames[0].get(),
-            Some(idx) => self.search_result_frames[idx].get()
+            Some(idx) => self.search_result_frames[idx as usize].get()
         };
         self.user_desktop_files.clone().unwrap()[idx.idx_in_xdg_entries_vector].launch(None);
     }
@@ -121,7 +123,7 @@ impl Launcher {
     }
 
     pub fn scroll_search_results_down(&mut self) {
-        const end_dx: usize = RESULT_ENTRY_COUNT - 1;
+        const end_dx: isize = (RESULT_ENTRY_COUNT - 1) as isize;
         match self.selected_search_idx {
             Some(end_dx) => {
                 let next_search_result_idx = self.search_result_frames[
@@ -385,11 +387,14 @@ unsafe fn startup(application: &gtk::Application) {
     };
 
     let mut buffer = search_buffer_imp::SearchEntryBuffer::new();
-    let desktop_entries = Rc::new(search::get_xdg_desktop_entries());
+    let xdg_desktop_entries = search::get_xdg_desktop_entries();
+    let desktop_entries = Rc::new(xdg_desktop_entries.0);
+    let custom_launchers = Rc::new(xdg_desktop_entries.1);
     let search_context = buffer.context.clone();
     (*search_context).borrow_mut().set_desktop_files(desktop_entries.clone());
     launcher.search_context = Some(search_context);
-    launcher.user_desktop_files = Some(desktop_entries);
+    launcher.user_desktop_files = Some(desktop_entries.clone());
+    launcher.custom_launchers = Some(custom_launchers);
     let search_entry = SearchEntry::new(buffer);
     launcher.input_buffer = Some(Rc::new(search_entry));
     let mut input_field = gtk::Entry::builder().xalign(0.5)
@@ -428,7 +433,7 @@ unsafe fn startup(application: &gtk::Application) {
         gtk::prelude::ButtonExt::set_label(&result_box, &"");
         // frame.set_label(Some(""));
         result_box.connect_has_focus_notify(|f| {
-            launcher.selected_search_idx = Some(f.get().idx_in_container);
+            launcher.selected_search_idx = Some(f.get().idx_in_container.try_into().unwrap());
         });
         let context = result_box.style_context();
         context.add_class("result_box");
@@ -455,11 +460,41 @@ unsafe fn startup(application: &gtk::Application) {
         .orientation(gtk::Orientation::Horizontal)
         .build();
     topbar.set_center_widget(Some(&clock));
-    let clock_icon = gtk::Image::from_file("alarm-clock-svgrepo-com.svg");
-    clock_icon.set_icon_size(gtk::IconSize::Large);
-    let context = clock_icon.style_context();
-    context.add_class("alarm_clock");
-    // topbar.set_end_widget(Some(&clock_icon));
+
+    // let screenshot_icon = match gio::Icon::for_string("applets-screenshooter-symbolic") {
+    //     Ok(icon) => icon,
+    //     Err(..) => todo!()
+    // };
+    // let screenshot_icon = gtk::Image::from_gicon(&screenshot_icon);
+    
+    let mut cwd = std::env::current_dir().expect("Error accessing CWD");
+    cwd.push("assets");
+    let resource_path = cwd.into_os_string().into_string().unwrap();
+    let mut search_paths = StrV::new();
+    search_paths.push(resource_path.clone().into());
+    let icon_theme = gtk::IconTheme::builder()
+        .theme_name("Adwaita")
+        .build();
+    
+    println!("resource_path {resource_path}");
+    icon_theme.set_resource_path(&[&resource_path]);
+    icon_theme.set_search_path(&[Path::new(&resource_path)]);
+    println!("{:?}", icon_theme.search_path());
+    let screenshot_paintable = icon_theme.lookup_icon(
+        "adwaita-applets-screenshooter-symbolic", &[], 
+        32, 1, gtk::TextDirection::None, gtk::IconLookupFlags::PRELOAD);
+    let screenshot_icon = gtk::Image::from_paintable(Some(&screenshot_paintable));
+    screenshot_icon.set_icon_size(gtk::IconSize::Large);
+    screenshot_icon.set_focusable(true);
+    screenshot_icon.connect_has_focus_notify(|f| {
+        launcher.selected_search_idx = Some(-1);
+    });
+    let context = screenshot_icon.style_context();
+    context.add_class("screenshot-button");
+    topbar.set_end_widget(Some(&screenshot_icon));
+    input_field.connect_has_focus_notify(|f| {
+        launcher.selected_search_idx = None;
+    });
     root.append(&topbar);
 
     let tick = move || { 
@@ -482,6 +517,7 @@ unsafe fn startup(application: &gtk::Application) {
     input_field.connect_has_focus_notify(|f| {
         launcher.selected_search_idx = None;
     });
+    input_field.set_has_frame(false);
     launcher.clear_search_results();
     WINDOW.replace(Some(w));
 
