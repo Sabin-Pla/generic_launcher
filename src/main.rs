@@ -41,7 +41,7 @@ use inotify::{
     WatchMask,
 };
 
-pub const RESULT_ENTRY_COUNT: usize = 5;
+pub const RESULT_ENTRY_COUNT: usize = 6;
 
 
 pub struct Launcher {
@@ -184,7 +184,6 @@ impl Launcher {
         if self.search_result_frames[clicked_idx].has_focus() {
             self.launch_selected_application();
         } else {
-             println!("grabbing focus");
             self.search_result_frames[clicked_idx].grab_focus();
         }
     }
@@ -263,12 +262,6 @@ fn key_handler(ec: &gtk::EventControllerKey,
                    &character.to_string(), 
                    &mut pos);
                 input.select_region(pos, pos);
-               // let mut search_context = launcher.search_context.clone().unwrap();
-               // let mut search_context = search_context.borrow_mut(); 
-               // search::text_inserted(&mut search_context, pos, &character.to_string())
-               // println!("{} {}", ec.forward(&(*input)), pos);
-              //  ::propogate_event(input);
-               // (*launcher.text_input.unwrap()).propagate_key_event();
             },
             None => ()
         };
@@ -550,12 +543,10 @@ unsafe fn startup(application: &gtk::Application) {
     launcher.screenshot_button = Some(Rc::new(screenshot_icon.clone()));
 
     let gesture_click = gtk::GestureClick::new();
-    let frame = gtk::Frame::new(None);
-    frame.set_child(Some(&screenshot_icon));
     gesture_click.connect_pressed(screenshot_click_handler);
-    frame.add_controller(gesture_click);
+    screenshot_icon.add_controller(gesture_click);
 
-    topbar.set_end_widget(Some(&frame));
+    topbar.set_end_widget(Some(&screenshot_icon));
 
     input_field.connect_has_focus_notify(|f| {
         launcher.selected_search_idx = None;
