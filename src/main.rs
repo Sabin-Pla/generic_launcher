@@ -58,7 +58,8 @@ pub struct Launcher {
     user_desktop_files: Option<Rc<Vec<XdgDesktopEntry>>>,
     search_context: Option<Rc<RefCell<SearchContext>>>,
     input_buffer: Option<Rc<SearchEntry>>,
-    custom_launchers: Option<Rc<Vec<XdgDesktopEntry>>>
+    custom_launchers: Option<Rc<Vec<XdgDesktopEntry>>>,
+    screenshot_button: Option<Rc<gtk::Image>>
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -80,7 +81,8 @@ static mut launcher: Launcher = Launcher {
     user_desktop_files: None,
     search_context: None,
     input_buffer: None,
-    custom_launchers: None
+    custom_launchers: None,
+    screenshot_button: None
 }; 
 
 impl Launcher {
@@ -123,6 +125,7 @@ impl Launcher {
     }
 
     pub fn scroll_search_results_down(&mut self) {
+        self.deselect_text();
         const end_dx: isize = (RESULT_ENTRY_COUNT - 1) as isize;
         match self.selected_search_idx {
             Some(end_dx) => {
@@ -171,11 +174,49 @@ impl Launcher {
             }
         }
     }
+
+    pub fn select_screenshot_button(&mut self) {
+        let button = self.screenshot_button.clone().unwrap();
+        button.grab_focus();
+    }
+
+    pub fn handle_result_click(&mut self, clicked_idx: usize) {
+        if self.search_result_frames[clicked_idx].has_focus() {
+            self.launch_selected_application();
+        } else {
+             println!("grabbing focus");
+            self.search_result_frames[clicked_idx].grab_focus();
+        }
+    }
+
+    pub fn deselect_text(&mut self) {
+        unsafe {
+            let input = self.text_input.clone().unwrap();
+            let mut pos = (*launcher.search_context.clone().unwrap()).borrow().buf.len() as i32;
+            input.select_region(pos - 1, pos - 1);
+        }
+    }
 }
 
 
 thread_local! {
     static WINDOW: RefCell<Option<gtk::ApplicationWindow>> = RefCell::new(None);
+}
+
+fn screenshot_enter_handler(ec: &gtk::EventControllerMotion, _: f64, _: f64) {
+    unsafe { launcher.select_screenshot_button(); }
+}
+
+fn screenshot_leave_handler(ec: &gtk::EventControllerMotion) {
+    unsafe { launcher.focus_text_input(); }
+}
+
+fn screenshot_click_handler(gc: &gtk::GestureClick, _: i32, _: f64, _: f64) {
+    unsafe {
+        println!("-;");
+        launcher.select_screenshot_button();
+        launcher.launch_selected_application();
+    }
 }
 
 fn get_time_str() -> String {
@@ -349,8 +390,10 @@ unsafe fn startup(application: &gtk::Application) {
                                             println!("inotify event");
 
                                             for event in events {
-                                                if !matches!(event.mask, inotify::EventMask::CLOSE_NOWRITE) {
-                                                    libc::write(fd, buffer.as_ptr() as *mut c_void, 1);
+                                                if !matches!(event.mask, 
+                                                    inotify::EventMask::CLOSE_NOWRITE) {
+                                                    libc::write(fd, 
+                                                        buffer.as_ptr() as *mut c_void, 1);
                                                     break 'outer  
                                                 }
                                             }
@@ -411,8 +454,8 @@ unsafe fn startup(application: &gtk::Application) {
     context.add_class("input-field");
     w.init_layer_shell();
 
-    w.set_layer(Layer::Overlay);
     // w.auto_exclusive_zone_enable(); for persistent topbar
+    w.set_layer(Layer::Overlay);
     w.set_margin(Edge::Left, 800);
     w.set_margin(Edge::Right, 800);
     w.set_margin(Edge::Top, 400);
@@ -438,9 +481,15 @@ unsafe fn startup(application: &gtk::Application) {
         result_box.set_focusable(true);
         result_box.set_focus_on_click(true);
         gtk::prelude::ButtonExt::set_label(&result_box, &"");
-        // frame.set_label(Some(""));
+        let gesture_click = gtk::GestureClick::builder()
+            .propagation_phase(PropagationPhase::Capture).build();
+        gesture_click.connect_pressed(move |_, _, _, _| {
+            launcher.handle_result_click(i)
+        });
+        result_box.add_controller(gesture_click);
         result_box.connect_has_focus_notify(|f| {
-            launcher.selected_search_idx = Some(f.get().idx_in_container.try_into().unwrap());
+            launcher.selected_search_idx = Some(
+                f.get().idx_in_container.try_into().unwrap());
         });
         let context = result_box.style_context();
         context.add_class("result-box");
@@ -467,12 +516,6 @@ unsafe fn startup(application: &gtk::Application) {
         .orientation(gtk::Orientation::Horizontal)
         .build();
     topbar.set_center_widget(Some(&clock));
-
-    // let screenshot_icon = match gio::Icon::for_string("applets-screenshooter-symbolic") {
-    //     Ok(icon) => icon,
-    //     Err(..) => todo!()
-    // };
-    // let screenshot_icon = gtk::Image::from_gicon(&screenshot_icon);
     
     let mut cwd = std::env::current_dir().expect("Error accessing CWD");
     cwd.push("assets");
@@ -496,9 +539,24 @@ unsafe fn startup(application: &gtk::Application) {
     screenshot_icon.connect_has_focus_notify(|f| {
         launcher.selected_search_idx = Some(-1);
     });
+
+    let ecm = gtk::EventControllerMotion::builder()
+        .propagation_phase(PropagationPhase::Capture).build();
+    ecm.connect_enter(screenshot_enter_handler);
+    ecm.connect_leave(screenshot_leave_handler);
+    screenshot_icon.add_controller(ecm);
     let context = screenshot_icon.style_context();
     context.add_class("screenshot-button");
-    topbar.set_end_widget(Some(&screenshot_icon));
+    launcher.screenshot_button = Some(Rc::new(screenshot_icon.clone()));
+
+    let gesture_click = gtk::GestureClick::new();
+    let frame = gtk::Frame::new(None);
+    frame.set_child(Some(&screenshot_icon));
+    gesture_click.connect_pressed(screenshot_click_handler);
+    frame.add_controller(gesture_click);
+
+    topbar.set_end_widget(Some(&frame));
+
     input_field.connect_has_focus_notify(|f| {
         launcher.selected_search_idx = None;
     });

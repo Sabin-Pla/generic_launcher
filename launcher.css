@@ -48,9 +48,13 @@ window {
 	background-color: @result-unselected;
 }
 
+.result-box:hover {
+	background-color: shade(@result-selected, 0.6);
+}
+
 .result-box:focus {
 	transition: 0.03s linear;
-	outline: 3px solid shade(@result-selected, 0.2);
+	outline: 3px solid shade(@result-selected, 0.3);
 	background-image: none;
 	background-color: @result-selected;
 	color: @result-selected-text;
