@@ -323,6 +323,9 @@ unsafe fn startup(application: &gtk::Application) {
         Err(..) => {
             let mut cwd = std::env::current_dir().expect("Error accessing CWD");
             cwd.push("launcher.css");
+            let mut parent_dir = glib::user_config_dir();
+            parent_dir.push("generic_launcher");
+            std::fs::create_dir(parent_dir);
             std::os::unix::fs::symlink(cwd, css_path.clone());
             File::open(css_path.clone()).unwrap()
         }
