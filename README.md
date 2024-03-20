@@ -6,7 +6,7 @@ Supports css styling through symlink to css file created in `$XDG_CONFIG_HOME/ge
 
 Depends on `gtk4-layer-shell` (https://github.com/wmww/gtk4-layer-shell) and `inotifytools` (todo: make this dependency optional for hotswapping css)
 
-Screenshot button depends on `grim`, `slurp`
+Screenshot button depends on `grim`, `wl-clipboard`, and `slurp` 
 
 ## Installation
 
