@@ -15,7 +15,7 @@ install dependencies, then change directory into repo root and run
 
 Set up shortcuts for your compositor. For Hyprland I use: 
 
-`$launcher = <repo folder>/target/debug/generic_launcher`
+`$launcher = (cd <repo folder> && <repo folder>/target/debug/generic_launcher)`
 `bind = SUPER, SUPER_L, exec, $launcher`
 
 todo:
