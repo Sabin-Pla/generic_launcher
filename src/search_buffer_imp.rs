@@ -1,14 +1,9 @@
 use crate::Rc;
-use std::ffi::OsString;
-use std::error::Error;
 use gtk::glib::{self, Object};
 use gtk::subclass::prelude::*;
 use std::cell::{Ref, RefCell};
-use std::time::Duration;
 use crate::search::SearchContext;
 use crate::search;
-
-use crate::launcher;
 
 pub struct SearchEntryBuffer { 
 	pub context: Rc<RefCell<SearchContext>>
@@ -23,7 +18,6 @@ impl SearchEntryBuffer {
 }
 
 mod inner {
-	use gtk::prelude::EditableExt;
     use super::*;
 
     pub struct SearchEntry(pub RefCell<SearchEntryBuffer>);
@@ -46,7 +40,7 @@ mod inner {
             let position = position as usize;
     		println!("text inserted at position {position} {chars}");
             let me = self.0.borrow_mut();
-            let results = search::text_inserted(&mut me.context.borrow_mut(), position, chars);
+            search::text_inserted(&mut me.context.borrow_mut(), position, chars);
     	}
 
         fn text(&self) -> glib::GString {
@@ -78,11 +72,11 @@ glib::wrapper! {
 impl SearchEntry {
     pub fn new(data: SearchEntryBuffer) -> Self {
         let obj = Object::new::<Self>();
-        *inner::SearchEntry::from_instance(&obj).0.borrow_mut() = data;
+        *inner::SearchEntry::from_obj(&obj).0.borrow_mut() = data;
         obj
     }
 
     pub fn get(&self) -> Ref<SearchEntryBuffer> {
-        inner::SearchEntry::from_instance(self).0.borrow()
+        inner::SearchEntry::from_obj(self).0.borrow()
     }
 }

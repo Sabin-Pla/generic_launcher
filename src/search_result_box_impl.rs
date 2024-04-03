@@ -1,11 +1,7 @@
 use std::cell::RefMut;
-use crate::Rc;
-use std::ffi::OsString;
-use std::error::Error;
 use gtk::glib::{self, Object};
 use gtk::subclass::prelude::*;
 use std::cell::{Ref, RefCell};
-use crate::launcher;
 
 pub struct SearchResultBoxWidget { 
 	pub idx_in_container: usize,
@@ -69,16 +65,16 @@ glib::wrapper! {
 impl SearchResultBox {
     pub fn new(data: SearchResultBoxWidget) -> Self {
         let obj = Object::new::<Self>();
-        *inner::SearchResultBox::from_instance(&obj).0.borrow_mut() = data;
+        *inner::SearchResultBox::from_obj(&obj).0.borrow_mut() = data;
         obj
     }
 
     pub fn get(&self) -> Ref<SearchResultBoxWidget> {
-        inner::SearchResultBox::from_instance(self).0.borrow()
+        inner::SearchResultBox::from_obj(self).0.borrow()
     }
 
     pub fn get_mut(&self) -> RefMut<SearchResultBoxWidget> {
-        inner::SearchResultBox::from_instance(self).0.borrow_mut()
+        inner::SearchResultBox::from_obj(self).0.borrow_mut()
     }
 
     pub fn set_desktop_idx(&mut self, idx: usize) {
@@ -87,7 +83,7 @@ impl SearchResultBox {
     } 
 
     pub fn get_desktop_idx(&self) -> usize {
-        let mut inner = self.get();
+        let inner = self.get();
         inner.idx_in_xdg_entries_vector
     }
 

@@ -15,13 +15,6 @@ pub struct XdgDesktopEntry {
 	pub app_info: Rc<DesktopAppInfo>,
 }
 
-enum Property {
-	Name,
-	Exec,
-	MimeType,
-}
-
-
 impl XdgDesktopEntry {
 	pub fn try_from(path: &Path) -> Option<Self> {			
 		let app_info = if let Some(app_info) = DesktopAppInfo::from_filename(path) {
@@ -54,8 +47,8 @@ impl XdgDesktopEntry {
 	}	
 
 	pub fn on_app_launch(
-			launch_context: &AppLaunchContext, 
-			app_info: &AppInfo, 
+			_launch_context: &AppLaunchContext, 
+			_app_info: &AppInfo, 
 			launched_event: &gtk::glib::Variant	) {
 		// https://docs.gtk.org/gio/signal.AppLaunchContext.launched.html get pid  
 		println!("{:?}", launched_event);
@@ -69,8 +62,6 @@ impl XdgDesktopEntry {
 			Some(action) => self.app_info.launch_action(action, Some(&launch_context)),
 			None => self.app_info.launch(&[], Some(&launch_context)).expect("REASON")
 		};
-		unsafe { crate::launcher.clear_search_buffer(); }
-		unsafe { crate::launcher.hide_window() };
 	}
 }
 

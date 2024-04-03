@@ -1,36 +1,25 @@
 
-use glib::StrV;
-use std::io::Read;
 use std::path::{Path, PathBuf};
-use glib::subclass::shared::RefCounted;
-use std::os::fd::AsRawFd;
-use gtk::subclass::prelude::ButtonImpl;
-use gtk::subclass::prelude::WidgetImpl;
-use gtk::subclass::prelude::ObjectSubclass;
-use gtk::subclass::prelude::ObjectImpl;
-use std::sync::OnceLock;
-use glib::subclass::Signal;
-use std::sync::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::os::raw::c_char;
+use std::fs::File;
+
+use libc::{c_void, mkfifo, O_RDONLY, O_WRONLY};
+
+
 use gio::prelude::*;
 use gtk::prelude::*;
+use glib::StrV;
 use gtk4_layer_shell::{KeyboardMode, Edge, Layer, LayerShell};
-use std::ffi::CStr;
-use std::os::fd::IntoRawFd;
-use std::fs;
-use std::os::raw::c_char;
-use std::ffi::CString;
-use std::fs::File;
 use gtk::PropagationPhase;
-use std::time::{Duration, SystemTime};
 
 mod search;
 mod search_buffer_imp;
 mod xdg_desktop_entry;
 use xdg_desktop_entry::XdgDesktopEntry;
-use search_buffer_imp::{SearchEntry, SearchEntryBuffer};
+use search_buffer_imp::SearchEntry;
 use search::SearchContext;
 
 mod search_result_box_impl;
@@ -68,7 +57,6 @@ enum State {
     Visible,
     NotStarted
 }
-
 
 static mut launcher: Launcher = Launcher { 
 	state: State::NotStarted, 
@@ -118,6 +106,8 @@ impl Launcher {
             Some(idx) => self.search_result_frames[idx as usize].get()
         };
         self.user_desktop_files.clone().unwrap()[idx.idx_in_xdg_entries_vector].launch(None);
+        unsafe { crate::launcher.hide_window() };
+        unsafe { crate::launcher.clear_search_buffer(); }        
     }
 
     pub fn clear_search_buffer(&mut self) {
@@ -126,9 +116,9 @@ impl Launcher {
 
     pub fn scroll_search_results_down(&mut self) {
         self.deselect_text();
-        const end_dx: isize = (RESULT_ENTRY_COUNT - 1) as isize;
+        const END_IDX: isize = (RESULT_ENTRY_COUNT - 1) as isize;
         match self.selected_search_idx {
-            Some(end_dx) => {
+            Some(END_IDX) => {
                 let next_search_result_idx = self.search_result_frames[
                     RESULT_ENTRY_COUNT - 1].get_idx_in_search_result_vector() + 1;
                 let next_result_desktop_idx = search::get_xdg_index_from_last_search_result_idx(
@@ -163,15 +153,15 @@ impl Launcher {
             result_box.set_idx_in_search_result_vector(search_result_idx);
             result_box.set_focusable(true);
             result_box.set_visible(true);
-            let app_info = desktop_entry.app_info.clone();
-            if app_info.has_key("Icon") {
-                let icon_name = app_info.locale_string("Icon").unwrap();
-                let image = gtk::Image::from_icon_name(&icon_name);
+            // let app_info = desktop_entry.app_info.clone();
+            // if app_info.has_key("Icon") {
+                // let icon_name = app_info.locale_string("Icon").unwrap();
+                // let image = gtk::Image::from_icon_name(&icon_name);
                 //println!("icon name {} {}", icon_name, image.uses_fallback());
                 //let root = gtk::Grid::builder().hexpand(true).vexpand(true).column_spacing(100).build();
                 //root.attach(&image, 1, 1, 3, 20);
                 //result_box.set_icon(&icon_name);
-            }
+            // }
         }
     }
 
@@ -191,7 +181,7 @@ impl Launcher {
     pub fn deselect_text(&mut self) {
         unsafe {
             let input = self.text_input.clone().unwrap();
-            let mut pos = (*launcher.search_context.clone().unwrap()).borrow().buf.len() as i32;
+            let pos = (*launcher.search_context.clone().unwrap()).borrow().buf.len() as i32;
             input.select_region(pos - 1, pos - 1);
         }
     }
@@ -202,15 +192,15 @@ thread_local! {
     static WINDOW: RefCell<Option<gtk::ApplicationWindow>> = RefCell::new(None);
 }
 
-fn screenshot_enter_handler(ec: &gtk::EventControllerMotion, _: f64, _: f64) {
+fn screenshot_enter_handler(_ec: &gtk::EventControllerMotion, _: f64, _: f64) {
     unsafe { launcher.select_screenshot_button(); }
 }
 
-fn screenshot_leave_handler(ec: &gtk::EventControllerMotion) {
+fn screenshot_leave_handler(_ec: &gtk::EventControllerMotion) {
     unsafe { launcher.focus_text_input(); }
 }
 
-fn screenshot_click_handler(gc: &gtk::GestureClick, _: i32, _: f64, _: f64) {
+fn screenshot_click_handler(_gc: &gtk::GestureClick, _: i32, _: f64, _: f64) {
     unsafe {
         println!("-;");
         launcher.select_screenshot_button();
@@ -224,7 +214,7 @@ fn get_time_str() -> String {
     formatted
 }
 
-fn key_handler(ec: &gtk::EventControllerKey, 
+fn key_handler(_ec: &gtk::EventControllerKey, 
         key: gdk::Key, _: u32, m: gdk::ModifierType) -> gtk::glib::Propagation {
     println!("key {} {}", key, m);
     unsafe {
@@ -244,7 +234,7 @@ fn key_handler(ec: &gtk::EventControllerKey,
             gdk::Key::BackSpace => {
                 launcher.focus_text_input();
                 let input = launcher.text_input.clone().unwrap();
-                let mut pos = (*launcher.search_context.clone().unwrap()).borrow().buf.len() as i32;
+                let pos = (*launcher.search_context.clone().unwrap()).borrow().buf.len() as i32;
                 input.delete_text(pos -1, pos);
                 input.select_region(pos - 1, pos - 1);
                 return gtk::glib::Propagation::Proceed;
@@ -271,7 +261,7 @@ fn key_handler(ec: &gtk::EventControllerKey,
     gtk::glib::Propagation::Proceed
 }
 
-unsafe fn activate(application: &gtk::Application) {
+unsafe fn activate(_application: &gtk::Application) {
 	println!("Activating...");
 	if launcher.done_init {
 		WINDOW.with( |w| {
@@ -304,17 +294,20 @@ fn reload_css() {
     println!("reloading css...");
     unsafe {
         match &launcher.css_provider {
-            Some((path, file, provider)) => 
+            Some((path, _file, provider)) => 
                 provider.load_from_path((*path).as_path()),
             None => ()
         };
     }
 }
 
-use libc::{c_void, mkfifo, fdopen, fclose, read, fprintf, 
-    close, fgets, open, write, O_RDONLY, O_WRONLY, O_NONBLOCK};
+
 unsafe fn startup(application: &gtk::Application) {
     println!("Starting up...");
+    let mut screenshots_path = glib::home_dir();
+    screenshots_path.push("Pictures");
+    screenshots_path.push("Screenshots");
+    let _ = std::fs::create_dir(screenshots_path);
 
     let mut css_path = glib::user_config_dir();
     css_path.push("generic_launcher/launcher.css");
@@ -325,8 +318,8 @@ unsafe fn startup(application: &gtk::Application) {
             cwd.push("launcher.css");
             let mut parent_dir = glib::user_config_dir();
             parent_dir.push("generic_launcher");
-            std::fs::create_dir(parent_dir);
-            std::os::unix::fs::symlink(cwd, css_path.clone());
+            let _ = std::fs::create_dir(parent_dir);
+            let _ = std::os::unix::fs::symlink(cwd, css_path.clone());
             File::open(css_path.clone()).unwrap()
         }
     };
@@ -343,7 +336,7 @@ unsafe fn startup(application: &gtk::Application) {
     let provider = gtk::CssProvider::new();
     launcher.css_provider = Some((Box::new(css_path.clone()), css_file, provider.into()));
     match &launcher.css_provider {
-        Some((path, file, provider)) =>  {
+        Some((path, _file, provider)) =>  {
 
             let mut pipe_path = css_path.clone();
             pipe_path.set_extension(&"pipe");
@@ -405,10 +398,10 @@ unsafe fn startup(application: &gtk::Application) {
                 }
             };
             
-            let (fd, mut buffer) = open_pipe(O_RDONLY);
+            let (fd, buffer) = open_pipe(O_RDONLY);
             glib::source::unix_fd_add_local(
                 fd, 
-                glib::IOCondition::IN, move |_, d| {
+                glib::IOCondition::IN, move |_, _d| {
                     let bytes_read = libc::read(fd, buffer.as_ptr() as *mut c_void, 20); 
                     println!("bytes_read {:?}", bytes_read);
                     if bytes_read == 0 {
@@ -432,7 +425,7 @@ unsafe fn startup(application: &gtk::Application) {
         None => ()
     };
 
-    let mut buffer = search_buffer_imp::SearchEntryBuffer::new();
+    let buffer = search_buffer_imp::SearchEntryBuffer::new();
     let xdg_desktop_entries = search::get_xdg_desktop_entries();
     let desktop_entries = Rc::new(xdg_desktop_entries.0);
     let custom_launchers = Rc::new(xdg_desktop_entries.1);
@@ -532,7 +525,7 @@ unsafe fn startup(application: &gtk::Application) {
     let screenshot_icon = gtk::Image::from_paintable(Some(&screenshot_paintable));
     screenshot_icon.set_icon_size(gtk::IconSize::Large);
     screenshot_icon.set_focusable(true);
-    screenshot_icon.connect_has_focus_notify(|f| {
+    screenshot_icon.connect_has_focus_notify(|_f| {
         launcher.selected_search_idx = Some(-1);
     });
 
@@ -551,7 +544,7 @@ unsafe fn startup(application: &gtk::Application) {
 
     topbar.set_end_widget(Some(&screenshot_icon));
 
-    input_field.connect_has_focus_notify(|f| {
+    input_field.connect_has_focus_notify(|_f| {
         launcher.selected_search_idx = None;
     });
     root.append(&topbar);
@@ -573,7 +566,7 @@ unsafe fn startup(application: &gtk::Application) {
     launcher.text_input = Some(Rc::new(input_field.clone()));
     let input_field = &mut input_field;
     input_field.set_placeholder_text(Some("Applications"));
-    input_field.connect_has_focus_notify(|f| {
+    input_field.connect_has_focus_notify(|_f| {
         launcher.selected_search_idx = None;
     });
     input_field.set_has_frame(false);

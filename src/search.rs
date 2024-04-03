@@ -1,10 +1,4 @@
-
-
-
-use gtk::prelude::FrameExt;
-use std::borrow::BorrowMut;
 use crate::XdgDesktopEntry;
-use std::cell::RefCell;
 use crate::Rc;
 use std::ffi::OsStr;
 
@@ -75,7 +69,7 @@ pub fn get_xdg_desktop_entries() -> (Vec<XdgDesktopEntry>, Vec<XdgDesktopEntry>)
 			if path.extension() == desktop_extension { 
 				let entry = XdgDesktopEntry::try_from(&path);
 				if let Some(entry) = entry {
-					if let Some(bool_setting) = entry
+					if let Some(_) = entry
 							.app_info.locale_string("GenericLauncherCustom") {
 						custom_entries.push(entry);
 						continue
@@ -122,7 +116,7 @@ fn fetch_search_results(context: &SearchContext) -> SearchResult {
 		}
 	}
 	results.sort_by(|a, b| b.score.cmp(&a.score));
-	let mut results: Vec<_> = results.iter().map(|candidate| candidate.xdg_enties_idx).collect();
+	let results: Vec<_> = results.iter().map(|candidate| candidate.xdg_enties_idx).collect();
 	results
 }
 
@@ -141,14 +135,12 @@ pub fn display_search_results(results: SearchResult) {
 }
 
 pub fn text_inserted(context: &mut SearchContext, position: usize, chars: &str) {
-	let mut buf = &mut (context.buf);
+	let buf = &mut (context.buf);
     buf.insert_str(position, chars);
     println!("buffer: {:#?}", &buf);
     let search_results = fetch_search_results(context);
     context.result_cache = search_results.clone();
-    drop(context);
     display_search_results(search_results)
-
 }
 
 pub fn text_deleted(context: &mut SearchContext, position: usize, n_chars: Option<u32>) {
@@ -158,9 +150,15 @@ pub fn text_deleted(context: &mut SearchContext, position: usize, n_chars: Optio
 		context.buf.drain(position..);
 	}
 	println!("buffer: {:#?}", &context.buf);
+
+	unsafe {
+		if let crate::State::Hidden = crate::launcher.state {	
+			return
+		}
+	}
+
 	let search_results = fetch_search_results(context);
 	context.result_cache = search_results.clone();
-	drop(context);
 	display_search_results(search_results);
 }
 
