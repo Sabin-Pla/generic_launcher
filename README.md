@@ -20,10 +20,8 @@ Set up shortcuts for your compositor. For Hyprland I use:
 
 todo:
 	- launch actions
-	- refocus opened applications (hyprland integration)
-	- allow fullscreening apps (hyprland integration)
+	- hyprland intergration
 	- scroll up
-	- refactor
 
 ![Demo:](docs/demo_screenshot.jpg)
 

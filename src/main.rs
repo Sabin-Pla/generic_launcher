@@ -102,6 +102,8 @@ impl Launcher {
         if let Some(_idx) = self.selected_search_idx {
             self.launch_selected_application();
             self.hide_window();
+        } else {
+            self.search_result_frames[0].grab_focus();
         };
     }
 
@@ -178,7 +180,6 @@ impl Launcher {
     }
 
     pub fn handle_hovered(&mut self, hovered_idx: usize) {
-        println!("{hovered_idx}");
         unsafe {
             launcher.hovered_idx = hovered_idx;
             self.search_result_frames[hovered_idx].grab_focus();
@@ -188,6 +189,7 @@ impl Launcher {
     pub fn handle_result_click(&mut self, clicked_idx: usize) {
         if self.search_result_frames[clicked_idx].has_focus() {
             self.launch_selected_application();
+            self.hide_window();
         } else {
             self.search_result_frames[clicked_idx].grab_focus();
         }
@@ -259,6 +261,7 @@ fn key_handler(_ec: &gtk::EventControllerKey,
 
         let key_unicode = key.to_unicode();
         match key_unicode {
+            Some('\r') => (),
             Some(character) => {
                 launcher.focus_text_input();
                 let input = launcher.text_input.clone().unwrap();
@@ -487,7 +490,7 @@ unsafe fn startup(application: &gtk::Application) {
         let gesture_click = gtk::GestureClick::builder()
             .propagation_phase(PropagationPhase::Capture).build();
         let ecm = gtk::EventControllerMotion::builder()
-        .propagation_phase(PropagationPhase::Capture).build();
+            .propagation_phase(PropagationPhase::Capture).build();
         gesture_click.connect_pressed(move |_, _, _, _| {
             launcher.handle_result_click(i)
         });
