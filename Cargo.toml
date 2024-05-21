@@ -16,3 +16,10 @@ chrono = "0.4.33"
 inotify = "0.10.2"
 libc = "0.2.153"
 lazy_static = "1.4.0"
+hyprland = "0.4.0-alpha.2"
+tokio = { version = "1", features = [
+    "macros",
+    "io-std",
+    "rt-multi-thread",
+    "time",
+] }

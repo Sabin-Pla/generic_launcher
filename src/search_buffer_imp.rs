@@ -38,7 +38,10 @@ mod inner {
     impl EntryBufferImpl for SearchEntry {
     	fn inserted_text(&self, position: u32, chars: &str) {
             let position = position as usize;
-    		println!("text inserted at position {position} {chars}");
+    		println!("text inserted at position {position}| {} {}", chars.len(), chars);
+            if chars.len() == 1 && chars.as_bytes()[0] == 13 {
+                return; // carrage return ascii, don't add control chars to buffer.
+            }
             let me = self.0.borrow_mut();
             search::text_inserted(&mut me.context.borrow_mut(), position, chars);
     	}

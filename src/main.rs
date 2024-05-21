@@ -48,7 +48,8 @@ pub struct Launcher {
     search_context: Option<Rc<RefCell<SearchContext>>>,
     input_buffer: Option<Rc<SearchEntry>>,
     custom_launchers: Option<Rc<Vec<XdgDesktopEntry>>>,
-    screenshot_button: Option<Rc<gtk::Image>>
+    screenshot_button: Option<Rc<gtk::Image>>,
+    hovered_idx: usize
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -70,7 +71,8 @@ static mut launcher: Launcher = Launcher {
     search_context: None,
     input_buffer: None,
     custom_launchers: None,
-    screenshot_button: None
+    screenshot_button: None,
+    hovered_idx: 0
 }; 
 
 impl Launcher {
@@ -96,7 +98,14 @@ impl Launcher {
         );
     }
 
-    pub fn launch_selected_application(&self) {
+    pub fn handle_enter_key(&mut self) {
+        if let Some(_idx) = self.selected_search_idx {
+            self.launch_selected_application();
+            self.hide_window();
+        };
+    }
+
+    pub fn launch_selected_application(&mut self) {
         let idx = match self.selected_search_idx {
             Some(-1) => {
                 self.custom_launchers.clone().unwrap()[0].launch(None);
@@ -106,8 +115,6 @@ impl Launcher {
             Some(idx) => self.search_result_frames[idx as usize].get()
         };
         self.user_desktop_files.clone().unwrap()[idx.idx_in_xdg_entries_vector].launch(None);
-        unsafe { crate::launcher.hide_window() };
-        unsafe { crate::launcher.clear_search_buffer(); }        
     }
 
     pub fn clear_search_buffer(&mut self) {
@@ -170,6 +177,14 @@ impl Launcher {
         button.grab_focus();
     }
 
+    pub fn handle_hovered(&mut self, hovered_idx: usize) {
+        println!("{hovered_idx}");
+        unsafe {
+            launcher.hovered_idx = hovered_idx;
+            self.search_result_frames[hovered_idx].grab_focus();
+        }
+    }
+
     pub fn handle_result_click(&mut self, clicked_idx: usize) {
         if self.search_result_frames[clicked_idx].has_focus() {
             self.launch_selected_application();
@@ -202,9 +217,9 @@ fn screenshot_leave_handler(_ec: &gtk::EventControllerMotion) {
 
 fn screenshot_click_handler(_gc: &gtk::GestureClick, _: i32, _: f64, _: f64) {
     unsafe {
-        println!("-;");
         launcher.select_screenshot_button();
         launcher.launch_selected_application();
+        launcher.hide_window();
     }
 }
 
@@ -220,7 +235,7 @@ fn key_handler(_ec: &gtk::EventControllerKey,
     unsafe {
         match key {
             gdk::Key::Escape => launcher.hide_window(),
-            gdk::Key::Return => launcher.launch_selected_application(),
+            gdk::Key::Return => launcher.handle_enter_key(),
             gdk::Key::Down => launcher.scroll_search_results_down(),
             _ => ()
         };
@@ -300,7 +315,6 @@ fn reload_css() {
         };
     }
 }
-
 
 unsafe fn startup(application: &gtk::Application) {
     println!("Starting up...");
@@ -472,10 +486,14 @@ unsafe fn startup(application: &gtk::Application) {
         gtk::prelude::ButtonExt::set_label(&result_box, &"");
         let gesture_click = gtk::GestureClick::builder()
             .propagation_phase(PropagationPhase::Capture).build();
+        let ecm = gtk::EventControllerMotion::builder()
+        .propagation_phase(PropagationPhase::Capture).build();
         gesture_click.connect_pressed(move |_, _, _, _| {
             launcher.handle_result_click(i)
         });
+        ecm.connect_enter(move |_, _, _| { launcher.handle_hovered(i) });
         result_box.add_controller(gesture_click);
+        result_box.add_controller(ecm);
         result_box.connect_has_focus_notify(|f| {
             launcher.selected_search_idx = Some(
                 f.get().idx_in_container.try_into().unwrap());
@@ -575,6 +593,8 @@ unsafe fn startup(application: &gtk::Application) {
 
 }
 
+mod hyprland_features;
+
 fn main()  -> gtk::glib::ExitCode {
     unsafe {
         launcher.state = State::Visible;
@@ -582,6 +602,7 @@ fn main()  -> gtk::glib::ExitCode {
             Some("www.generic_launcher_example"), Default::default());
         application.set_accels_for_action("win.close", &["<Ctrl>C"]);
         application.connect_startup(|app| {
+            // not implemented yet std::thread::spawn(move || hyprland_features::draw_titlebars());
             startup(app) 
         });
         application.connect_activate(|app| {
