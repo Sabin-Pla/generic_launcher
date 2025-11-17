@@ -225,11 +225,13 @@ fn screenshot_click_handler(_gc: &gtk::GestureClick, _: i32, _: f64, _: f64) {
     }
 }
 
-fn get_time_str() -> String {
+fn get_time_str() -> (String, String) {
     let date_time  =  chrono::offset::Local::now();
-    let formatted = format!("{}", date_time.format("%a %d/%B %Y %H:%M:%S"));
-    formatted
-}
+    let (date_time, seconds) = (
+        format!("{}", date_time.format("%a %d/%B %Y %H:%M:")), 
+        format!("{}", date_time.format("%S")));
+    (date_time, seconds)
+} 
 
 fn key_handler(_ec: &gtk::EventControllerKey, 
         key: gdk::Key, _: u32, m: gdk::ModifierType) -> gtk::glib::Propagation {
@@ -317,6 +319,11 @@ fn reload_css() {
             None => ()
         };
     }
+}
+
+fn set_clock_time(time: &(String, String), clock: &gtk::Label, clock_seconds: &gtk::Label) {
+    clock.set_text(&time.0);
+    clock_seconds.set_text(&time.1);
 }
 
 unsafe fn startup(application: &gtk::Application) {
@@ -515,17 +522,26 @@ unsafe fn startup(application: &gtk::Application) {
         .propagation_phase(PropagationPhase::Capture).build();
     ec.connect_key_pressed(key_handler);
     w.add_controller(ec);
+    let clock_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     let clock = gtk::Label::default();
+    let clock_seconds = gtk::Label::default();
+    clock_seconds.set_hexpand(false);
+    clock_seconds.set_xalign(0.0);
+    clock_seconds.set_size_request(clock_seconds.width()+50, 40);
+    clock_box.append(&clock);
+    clock_box.append(&clock_seconds);
     let context = clock.style_context();
     context.add_class("clock");
-    clock.set_text(&get_time_str());
+    let context = clock_seconds.style_context();
+    context.add_class("clock");
+    set_clock_time(&get_time_str(), &clock, &clock_seconds);
 
     let context = root.style_context();
     context.add_class("root");
     let topbar = gtk::CenterBox::builder()
         .orientation(gtk::Orientation::Horizontal)
         .build();
-    topbar.set_center_widget(Some(&clock));
+    topbar.set_center_widget(Some(&clock_box));
     
     let mut cwd = std::env::current_dir().expect("Error accessing CWD");
     cwd.push("assets");
@@ -571,7 +587,7 @@ unsafe fn startup(application: &gtk::Application) {
     root.append(&topbar);
 
     let tick = move || { 
-        clock.set_text(&get_time_str());
+        set_clock_time(&get_time_str(), &clock, &clock_seconds);
         glib::ControlFlow::Continue
     };
 

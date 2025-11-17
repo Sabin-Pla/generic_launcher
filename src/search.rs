@@ -22,6 +22,7 @@ impl SearchContext {
 
 
 pub fn get_xdg_desktop_entries() -> (Vec<XdgDesktopEntry>, Vec<XdgDesktopEntry>) {
+	
 	let home = std::env::var("HOME").unwrap_or("~".to_string());
 	let dirs_entries = std::env::var("XDG_DATA_DIRS")
 		.unwrap_or("/usr/local/share:/usr/share".to_string());
