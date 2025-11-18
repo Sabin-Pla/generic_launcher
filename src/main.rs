@@ -5,6 +5,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::os::raw::c_char;
 use std::fs::File;
+use std::collections::HashMap;
+use std::time::Duration;
 
 use libc::{c_void, mkfifo, O_RDONLY, O_WRONLY};
 
@@ -49,7 +51,10 @@ pub struct Launcher {
     input_buffer: Option<Rc<SearchEntry>>,
     custom_launchers: Option<Rc<Vec<XdgDesktopEntry>>>,
     screenshot_button: Option<Rc<gtk::Image>>,
-    hovered_idx: usize
+    hovered_idx: usize,
+    clock: Option<Rc<std::cell::RefCell<gtk::Label>>>,
+    clock_sizes: Option<HashMap<(i32, i32), i32>>,
+    current_monitor: Option<(i32, i32)>
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -72,7 +77,10 @@ static mut launcher: Launcher = Launcher {
     input_buffer: None,
     custom_launchers: None,
     screenshot_button: None,
-    hovered_idx: 0
+    hovered_idx: 0,
+    clock: None,
+    clock_sizes: None,
+    current_monitor: None
 }; 
 
 impl Launcher {
@@ -162,15 +170,15 @@ impl Launcher {
             result_box.set_idx_in_search_result_vector(search_result_idx);
             result_box.set_focusable(true);
             result_box.set_visible(true);
-            // let app_info = desktop_entry.app_info.clone();
-            // if app_info.has_key("Icon") {
-                // let icon_name = app_info.locale_string("Icon").unwrap();
-                // let image = gtk::Image::from_icon_name(&icon_name);
-                //println!("icon name {} {}", icon_name, image.uses_fallback());
-                //let root = gtk::Grid::builder().hexpand(true).vexpand(true).column_spacing(100).build();
-                //root.attach(&image, 1, 1, 3, 20);
+            let app_info = desktop_entry.app_info.clone();
+            if app_info.has_key("Icon") {
+                let icon_name = app_info.locale_string("Icon").unwrap();
+                let image = gtk::Image::from_icon_name(&icon_name);
+                println!("icon name {} {}", icon_name, image.uses_fallback());
+                let root = gtk::Grid::builder().hexpand(true).vexpand(true).column_spacing(100).build();
+                root.attach(&image, 1, 1, 3, 20);
                 //result_box.set_icon(&icon_name);
-            // }
+            }
         }
     }
 
@@ -228,7 +236,7 @@ fn screenshot_click_handler(_gc: &gtk::GestureClick, _: i32, _: f64, _: f64) {
 fn get_time_str() -> (String, String) {
     let date_time  =  chrono::offset::Local::now();
     let (date_time, seconds) = (
-        format!("{}", date_time.format("%a %d/%B %Y %H:%M:")), 
+        format!("{}", date_time.format("%a %d/%B %Y %H:%M:%S")), 
         format!("{}", date_time.format("%S")));
     (date_time, seconds)
 } 
@@ -298,6 +306,16 @@ unsafe fn activate(_application: &gtk::Application) {
   					println!("Showing window");
   					w.set_keyboard_mode(KeyboardMode::Exclusive);
   					w.show();
+                    let clock = unsafe {
+                        launcher.clock.clone().expect("Clock not initialized")
+                    };
+                    let clock = clock.borrow();
+                    let display = clock.display().monitor_at_surface(&w.surface());
+                    let rect =  display.unwrap().geometry();
+                    let (width, height) = (rect.width(), rect.height());
+                    println!("monitor: {width} {height}");
+                    launcher.current_monitor = Some((width, height));
+                    set_clock_size(w, &mut launcher.clock_sizes);
                     launcher.clear_search_results();
                     launcher.clear_search_buffer();
                     launcher.focus_text_input();
@@ -305,10 +323,11 @@ unsafe fn activate(_application: &gtk::Application) {
   				}
   			}
 		});
-	}
+	} else {
+        println!("not yet initialized...");
+    }
 	launcher.done_init = true;
 }
-
 
 fn reload_css() {
     println!("reloading css...");
@@ -321,9 +340,66 @@ fn reload_css() {
     }
 }
 
-fn set_clock_time(time: &(String, String), clock: &gtk::Label, clock_seconds: &gtk::Label) {
+fn set_clock_time(time: &(String, String), clock: &gtk::Label) {
     clock.set_text(&time.0);
-    clock_seconds.set_text(&time.1);
+}
+
+fn show_clock() {
+    let clock = unsafe {
+        launcher.clock.clone().expect("Clock not initialized")
+    };
+    let mut clock_sizes = unsafe { &mut launcher.clock_sizes };
+    let current_monitor = unsafe { launcher.current_monitor.expect("current monitor not set") }; 
+    let clock_sizes = clock_sizes.as_mut();
+    let clock_sizes = clock_sizes.expect("clock_sizes not defined");
+    let clock = clock.borrow();
+    let width = clock.width();
+    let num_chars = clock.text().len();
+    let padded = width + ((width / num_chars as i32) as f32 * 3.5) as i32;
+    println!("Clock size {width} / {num_chars} -> {padded} | {:?}", current_monitor);
+    let clock_width = clock_sizes.entry(current_monitor).or_insert(padded);
+    if *clock_width == 0 {
+        *clock_width = padded;
+    }
+    println!("Showing clock and setting width to {padded}");
+    println!("{:?}", &clock_sizes);
+    clock.set_size_request(padded, 40);
+}
+
+fn set_clock_size(
+        w: &gtk::ApplicationWindow, 
+        clock_sizes: &mut Option<HashMap<(i32, i32), i32>>) {
+    let clock = unsafe {
+        launcher.clock.clone().expect("Clock not initialized")
+    };
+    let clock = clock.borrow();
+  
+    let display = clock.display().monitor_at_surface(&w.surface());
+    let rect =  display.unwrap().geometry();
+    let (w, h) = (rect.width(), rect.height());
+    // width might change substantially when app is opened on different monitor
+    // so save a different padded clock width for each monitor and use that
+    println!("---");
+    let pad_clock = || {
+        let width = clock.width();
+        let num_chars = clock.text().len();
+        if width == 0 {
+            println!("clock has 0 width");
+            // width may be zero in the event that widget hasn't loaded yet.
+            // hide the clock while it loads.
+            clock.set_opacity(0.1);
+            glib::timeout_add_local_once(Duration::from_millis(1000), show_clock);
+        } 
+        let padded = width + ((width / num_chars as i32) as f32 * 3.5) as i32;
+        //println!("Clock size {width} / {num_chars} -> {padded} | {w} {h}");
+        padded
+    };
+    println!("---");
+    let clock_sizes = clock_sizes.as_mut();
+    let clock_sizes = clock_sizes.expect("clock_sizes not defined");
+    let clock_width = clock_sizes.entry((w, h)).or_insert_with(pad_clock);
+    println!("--- {clock_width}");
+    clock.set_size_request(*clock_width, 40);
 }
 
 unsafe fn startup(application: &gtk::Application) {
@@ -347,6 +423,7 @@ unsafe fn startup(application: &gtk::Application) {
             File::open(css_path.clone()).unwrap()
         }
     };
+
     let css_file = Arc::new(css_file);
     let w = gtk::ApplicationWindow::new(application);
     let action_close = gio::ActionEntry::builder("close")
@@ -524,19 +601,17 @@ unsafe fn startup(application: &gtk::Application) {
     w.add_controller(ec);
     let clock_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     let clock = gtk::Label::default();
-    let clock_seconds = gtk::Label::default();
-    clock_seconds.set_hexpand(false);
-    clock_seconds.set_xalign(0.0);
-    clock_seconds.set_size_request(clock_seconds.width()+50, 40);
+    // let clock_seconds = gtk::Label::default();
     clock_box.append(&clock);
-    clock_box.append(&clock_seconds);
     let context = clock.style_context();
     context.add_class("clock");
-    let context = clock_seconds.style_context();
-    context.add_class("clock");
-    set_clock_time(&get_time_str(), &clock, &clock_seconds);
+    clock.set_xalign(0.0);
+    //let context = clock_seconds.style_context();
+    //context.add_class("clock-seconds");
+    set_clock_time(&get_time_str(), &clock);
 
     let context = root.style_context();
+
     context.add_class("root");
     let topbar = gtk::CenterBox::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -585,9 +660,13 @@ unsafe fn startup(application: &gtk::Application) {
         launcher.selected_search_idx = None;
     });
     root.append(&topbar);
-
+    let clock = Rc::new(RefCell::new(clock));
+    launcher.clock = Some(clock.clone());
+    launcher.clock_sizes = Some(HashMap::new());
     let tick = move || { 
-        set_clock_time(&get_time_str(), &clock, &clock_seconds);
+        let clock = clock.borrow();
+        set_clock_time(&get_time_str(), &clock);
+        clock.set_opacity(1.0);
         glib::ControlFlow::Continue
     };
 
@@ -599,14 +678,13 @@ unsafe fn startup(application: &gtk::Application) {
     input_field.set_focusable(true);
     input_field.grab_focus_without_selecting();
     w.set_keyboard_mode(KeyboardMode::Exclusive);
-    w.show();    
     launcher.text_input = Some(Rc::new(input_field.clone()));
     let input_field = &mut input_field;
     input_field.set_placeholder_text(Some("Applications"));
     input_field.connect_has_focus_notify(|_f| {
         launcher.selected_search_idx = None;
     });
-    input_field.set_has_frame(false);
+    input_field.set_has_frame(true);
     launcher.clear_search_results();
     WINDOW.replace(Some(w));
 
@@ -616,13 +694,14 @@ mod hyprland_features;
 
 fn main()  -> gtk::glib::ExitCode {
     unsafe {
-        launcher.state = State::Visible;
+        launcher.state = State::Hidden;
         let application = gtk::Application::new(
             Some("www.generic_launcher_example"), Default::default());
         application.set_accels_for_action("win.close", &["<Ctrl>C"]);
         application.connect_startup(|app| {
             // not implemented yet std::thread::spawn(move || hyprland_features::draw_titlebars());
-            startup(app) 
+            startup(app);
+            activate(app)
         });
         application.connect_activate(|app| {
             activate(app) 

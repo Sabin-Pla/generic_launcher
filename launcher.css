@@ -17,8 +17,9 @@ window {
 	padding: 10px;
 	border: 1px solid grey;
  	background-color: @main-color;
+ 	opacity: 90%;
+ 	border-radius: 20px;
 }
-
 
 .screenshot-button {
 	color: @button-inactive;
@@ -34,12 +35,17 @@ window {
 	margin-top: 10px;
 	font-size: 22px;
 	color: @text-color;
+	padding-left: 20px;
+	background-color: shade(@result-unselected, 0.94);
+	border-radius: 2px;
 }
 
 .input-field {
-	font-size: 25px;
-	background-color: @main-color;
+	font-size: 24px;
+	background-color: shade(@main-color, 0.8);
 	min-width: 800px;
+	padding-top: 6px;
+	padding-bottom: 6px;
 	outline: @box-outline-color solid 2px;
 	border-radius: 9px;
 }
@@ -53,6 +59,7 @@ window {
 .result-box:hover {
 	background-color: shade(@result-selected, 0.8);
 	color: @result-selected-text;
+	opacity: 100%;
 }
 
 .result-box:focus {
@@ -68,5 +75,3 @@ window {
 	border-bottom: 1px solid @accent-color;
 	padding-bottom: 10px;
 }
-
-
