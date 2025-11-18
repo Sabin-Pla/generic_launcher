@@ -36,9 +36,7 @@ impl SearchResultBoxWidget {
     } 
 }
 
-use gdk::prelude::IsA;
-use std::borrow::Borrow;
-use gdk::prelude::ObjectType;
+
 use gtk::Buildable;
 use gtk::Accessible;
 use gtk::Actionable;

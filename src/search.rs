@@ -137,20 +137,41 @@ pub fn display_search_results(results: SearchResult) {
 
 pub fn text_inserted(context: &mut SearchContext, position: usize, chars: &str) {
 	let buf = &mut (context.buf);
-    buf.insert_str(position, chars);
-    println!("buffer: {:#?}", &buf);
+	// buffer is not garuanteed to be full of utf8 characters, so we can't just
+	// insert the char at the given position 
+    buf.insert_str(char_position(buf, position), chars);
     let search_results = fetch_search_results(context);
     context.result_cache = search_results.clone();
     display_search_results(search_results)
 }
 
-pub fn text_deleted(context: &mut SearchContext, position: usize, n_chars: Option<u32>) {
-	if let Some(n) = n_chars {
-		context.buf.drain(position..position+n as usize);
-	} else {
-		context.buf.drain(position..);
+pub fn char_position(string: &str, n: usize) -> usize {
+	let mut counter = (0, 0);
+	// gets the byte position of the nth character in a str
+	for c in string.chars() {
+		counter.1 += 1;
+		counter.0 += c.len_utf8();
+		if counter.1 == n {
+			return counter.0;
+		}
 	}
-	println!("buffer: {:#?}", &context.buf);
+	0
+}
+
+
+pub fn text_deleted(context: &mut SearchContext, position: usize, n_chars: Option<u32>) {
+	// position is one less than the number of chars after which the cursor is placed
+	// n_chars is Some(1) when 
+	let buf = &mut (context.buf);
+	let position_idx = char_position(buf, position);
+
+	if let Some(n) = n_chars {
+		let end_idx = char_position(&buf[position_idx..], n as usize);
+		println!("Draining {buf} {position_idx}..{end_idx} {n}");
+		buf.drain(position_idx..position_idx+end_idx);
+	} else {
+		buf.drain(position_idx..);
+	}
 
 	unsafe {
 		if let crate::State::Hidden = crate::launcher.state {	

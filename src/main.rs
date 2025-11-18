@@ -10,7 +10,6 @@ use std::time::Duration;
 
 use libc::{c_void, mkfifo, O_RDONLY, O_WRONLY};
 
-
 use gio::prelude::*;
 use gtk::prelude::*;
 use glib::StrV;
@@ -234,12 +233,9 @@ fn screenshot_click_handler(_gc: &gtk::GestureClick, _: i32, _: f64, _: f64) {
     }
 }
 
-fn get_time_str() -> (String, String) {
+fn get_time_str() -> String {
     let date_time  =  chrono::offset::Local::now();
-    let (date_time, seconds) = (
-        format!("{}", date_time.format("%a %d/%B %Y %H:%M:%S")), 
-        format!("{}", date_time.format("%S")));
-    (date_time, seconds)
+    format!("{}", date_time.format("%a %d/%B %Y %H:%M:%S"))
 } 
 
 fn key_handler(_ec: &gtk::EventControllerKey, 
@@ -345,8 +341,8 @@ fn reload_css() {
     }
 }
 
-fn set_clock_time(time: &(String, String), clock: &gtk::Label) {
-    clock.set_text(&time.0);
+fn set_clock_time(time: &String, clock: &gtk::Label) {
+    clock.set_text(&time);
 }
 
 fn show_clock() {
