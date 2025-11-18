@@ -21,6 +21,7 @@ window {
  	border-radius: 20px;
 }
 
+
 .screenshot-button {
 	color: @button-inactive;
 	margin-top: 10px;
@@ -35,7 +36,6 @@ window {
 	margin-top: 10px;
 	font-size: 22px;
 	color: @text-color;
-	padding-left: 20px;
 	background-color: shade(@result-unselected, 0.94);
 	border-radius: 2px;
 }

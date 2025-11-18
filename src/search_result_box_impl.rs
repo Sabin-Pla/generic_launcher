@@ -1,5 +1,6 @@
 use std::cell::RefMut;
 use gtk::glib::{self, Object};
+use gtk::ConstraintTarget;
 use gtk::subclass::prelude::*;
 use std::cell::{Ref, RefCell};
 
@@ -35,11 +36,21 @@ impl SearchResultBoxWidget {
     } 
 }
 
+use gdk::prelude::IsA;
+use std::borrow::Borrow;
+use gdk::prelude::ObjectType;
+use gtk::Buildable;
+use gtk::Accessible;
+use gtk::Actionable;
+
 mod inner {
     use super::*;
 
     pub struct SearchResultBox(pub RefCell<SearchResultBoxWidget>);
 
+    impl ObjectImpl for SearchResultBox {}
+    impl WidgetImpl for SearchResultBox {}
+    impl ButtonImpl for SearchResultBox {}
 
     #[gtk::glib::object_subclass]
     impl ObjectSubclass for SearchResultBox {
@@ -51,15 +62,11 @@ mod inner {
             Self(SearchResultBoxWidget::new().into())
         }
     }
-
-    impl ObjectImpl for SearchResultBox {}
-    impl WidgetImpl for SearchResultBox {}
-    impl ButtonImpl for SearchResultBox {}
 }
 
 glib::wrapper! {
     pub struct SearchResultBox(ObjectSubclass<inner::SearchResultBox>)
-    @extends gtk::Widget, gtk::Button, gtk::Frame;
+    @extends gtk::Widget, gtk::Button, gtk::Frame, ConstraintTarget, Buildable, Accessible, Actionable; 
 }
 
 impl SearchResultBox {

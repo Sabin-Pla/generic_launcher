@@ -16,6 +16,7 @@ use gtk::prelude::*;
 use glib::StrV;
 use gtk4_layer_shell::{KeyboardMode, Edge, Layer, LayerShell};
 use gtk::PropagationPhase;
+use gtk::prelude::ApplicationExtManual;
 
 mod search;
 mod search_buffer_imp;
@@ -54,7 +55,7 @@ pub struct Launcher {
     hovered_idx: usize,
     clock: Option<Rc<std::cell::RefCell<gtk::Label>>>,
     clock_sizes: Option<HashMap<(i32, i32), i32>>,
-    current_monitor: Option<(i32, i32)>
+    current_monitor: Option<(i32, i32)>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -80,7 +81,7 @@ static mut launcher: Launcher = Launcher {
     hovered_idx: 0,
     clock: None,
     clock_sizes: None,
-    current_monitor: None
+    current_monitor: None,
 }; 
 
 impl Launcher {
@@ -243,7 +244,7 @@ fn get_time_str() -> (String, String) {
 
 fn key_handler(_ec: &gtk::EventControllerKey, 
         key: gdk::Key, _: u32, m: gdk::ModifierType) -> gtk::glib::Propagation {
-    println!("key {} {}", key, m);
+    println!("key {} {:?}", key, m);
     unsafe {
         match key {
             gdk::Key::Escape => launcher.hide_window(),
@@ -310,7 +311,9 @@ unsafe fn activate(_application: &gtk::Application) {
                         launcher.clock.clone().expect("Clock not initialized")
                     };
                     let clock = clock.borrow();
-                    let display = clock.display().monitor_at_surface(&w.surface());
+                    let display = clock.display();
+                    let surface = w.surface().unwrap();
+                    let display = display.monitor_at_surface(&surface);
                     let rect =  display.unwrap().geometry();
                     let (width, height) = (rect.width(), rect.height());
                     println!("monitor: {width} {height}");
@@ -363,7 +366,6 @@ fn show_clock() {
     println!("Showing clock and setting width to {padded}");
     println!("{:?}", &clock_sizes);
     clock.set_opacity(1.0);
-    // todo!("rerun this ")
     clock.set_size_request(padded, 0);
 }
 
@@ -381,7 +383,7 @@ fn set_clock_size(
     };
     let clock = clock.borrow();
   
-    let display = clock.display().monitor_at_surface(&w.surface());
+    let display = clock.display().monitor_at_surface(&w.surface().unwrap());
     let rect =  display.unwrap().geometry();
     let (w, h) = (rect.width(), rect.height());
     // width might change substantially when app is opened on different monitor
@@ -403,9 +405,15 @@ fn set_clock_size(
         } 
         calculate_clock_padding(&clock)
     };
-    println!("---");
+    let provider = gtk::CssProvider::new();
+    // todo: make this add half the added width to padding-left. for now we'll just use 20px cause it looks good enough
+    provider.load_from_string(".clock { padding-left: 20px }");
+    gtk::style_context_add_provider_for_display(
+        &gdk::Display::default().expect("Could not connect to a display."),
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+
     let clock_width = clock_sizes.entry((w, h)).or_insert_with(pad_clock);
-    println!("--- {clock_width}");
     clock.set_size_request(*clock_width, 40);
 }
 
