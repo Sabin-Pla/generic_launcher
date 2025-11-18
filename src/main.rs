@@ -337,6 +337,8 @@ fn reload_css() {
                 provider.load_from_path((*path).as_path()),
             None => ()
         };
+        let mut clock_sizes = unsafe { &mut launcher.clock_sizes };
+        *clock_sizes = Some(HashMap::new());
     }
 }
 
@@ -353,17 +355,22 @@ fn show_clock() {
     let clock_sizes = clock_sizes.as_mut();
     let clock_sizes = clock_sizes.expect("clock_sizes not defined");
     let clock = clock.borrow();
-    let width = clock.width();
-    let num_chars = clock.text().len();
-    let padded = width + ((width / num_chars as i32) as f32 * 3.5) as i32;
-    println!("Clock size {width} / {num_chars} -> {padded} | {:?}", current_monitor);
+    let padded = calculate_clock_padding(&clock);
     let clock_width = clock_sizes.entry(current_monitor).or_insert(padded);
     if *clock_width == 0 {
         *clock_width = padded;
     }
     println!("Showing clock and setting width to {padded}");
     println!("{:?}", &clock_sizes);
-    clock.set_size_request(padded, 40);
+    clock.set_opacity(1.0);
+    // todo!("rerun this ")
+    clock.set_size_request(padded, 0);
+}
+
+fn calculate_clock_padding(clock: &gtk::Label) -> i32 {
+    let width = clock.width();
+    let num_chars = clock.text().len();
+    width + ((width / num_chars as i32) as f32 * 3.5) as i32
 }
 
 fn set_clock_size(
@@ -379,24 +386,24 @@ fn set_clock_size(
     let (w, h) = (rect.width(), rect.height());
     // width might change substantially when app is opened on different monitor
     // so save a different padded clock width for each monitor and use that
-    println!("---");
-    let pad_clock = || {
-        let width = clock.width();
-        let num_chars = clock.text().len();
-        if width == 0 {
-            println!("clock has 0 width");
-            // width may be zero in the event that widget hasn't loaded yet.
-            // hide the clock while it loads.
-            clock.set_opacity(0.1);
-            glib::timeout_add_local_once(Duration::from_millis(1000), show_clock);
-        } 
-        let padded = width + ((width / num_chars as i32) as f32 * 3.5) as i32;
-        //println!("Clock size {width} / {num_chars} -> {padded} | {w} {h}");
-        padded
-    };
-    println!("---");
     let clock_sizes = clock_sizes.as_mut();
     let clock_sizes = clock_sizes.expect("clock_sizes not defined");
+    let uninitialized = clock_sizes.keys().len() == 0;
+
+    let pad_clock = || {
+        if uninitialized || clock.width() == 0 {
+            clock.set_visible(false);
+            clock.set_size_request(0, 0);
+            clock.set_visible(true);
+            println!("clock has 0 width {}", clock.width());
+            // width may be zero in the event that widget hasn't loaded yet.
+            // hide the clock while it loads.
+            clock.set_opacity(0.0);
+            glib::timeout_add_local_once(Duration::from_millis(20), show_clock);
+        } 
+        calculate_clock_padding(&clock)
+    };
+    println!("---");
     let clock_width = clock_sizes.entry((w, h)).or_insert_with(pad_clock);
     println!("--- {clock_width}");
     clock.set_size_request(*clock_width, 40);
@@ -666,7 +673,6 @@ unsafe fn startup(application: &gtk::Application) {
     let tick = move || { 
         let clock = clock.borrow();
         set_clock_time(&get_time_str(), &clock);
-        clock.set_opacity(1.0);
         glib::ControlFlow::Continue
     };
 
