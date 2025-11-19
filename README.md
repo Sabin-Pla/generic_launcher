@@ -13,14 +13,15 @@ Screenshot button depends on `grim`, `wl-clipboard`, and `slurp`
 install dependencies, then change directory into repo root and run
 `cargo build --release`
 
+
 Set up shortcuts for your compositor. For Hyprland I use: 
+
 
 `$launcher = (cd <repo folder> && <repo folder>/target/debug/generic_launcher)`
 `bind = SUPER, SUPER_L, exec, $launcher`
 
 todo:
 	- launch actions
-	- hyprland intergration
 	- scroll up
 
 ![Demo:](docs/demo_screenshot.jpg)

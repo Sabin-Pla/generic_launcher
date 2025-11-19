@@ -1,6 +1,10 @@
 use crate::Rc;
 use gtk::glib::{self, Object};
 use gtk::subclass::prelude::*;
+use gtk::prelude::*;
+use gtk::IMContext;
+use gtk::EventControllerKey;
+use gtk::prelude::IMContextExt;
 use std::cell::{Ref, RefCell};
 use crate::search::SearchContext;
 use crate::search;
@@ -17,11 +21,11 @@ impl SearchEntryBuffer {
 	}
 }
 
+
 mod inner {
     use super::*;
 
-    pub struct SearchEntry(pub RefCell<SearchEntryBuffer>);
-
+    pub struct SearchEntry(pub Rc<RefCell<SearchEntryBuffer>>);
 
     #[gtk::glib::object_subclass]
     impl ObjectSubclass for SearchEntry {
@@ -30,7 +34,9 @@ mod inner {
         type ParentType = gtk::EntryBuffer;
 
         fn new() -> Self {
-            Self(SearchEntryBuffer::new().into())
+            let buffer = Rc::new(RefCell::new(SearchEntryBuffer::new()));
+            let me = Self(buffer.clone());
+            me
         }
     }
 
@@ -62,14 +68,61 @@ mod inner {
         }
 
         fn length(&self) -> u32 {
-            self.0.borrow_mut().context.borrow_mut().buf.len().try_into().unwrap()
+            self.0.borrow_mut().context.borrow_mut().buf.chars().count().try_into().unwrap()
         } 
     }
+
+    
+    pub struct SearchEntryIMContext();
+
+    #[gtk::glib::object_subclass]
+    impl ObjectSubclass for SearchEntryIMContext {
+        const NAME: &'static str = "SearchEntryIMContext";
+        type Type = super::SearchEntryIMContext;
+        type ParentType = IMContext;
+
+        fn new() -> Self {
+            Self()
+        }
+    }
+
+    impl ObjectImpl for SearchEntryIMContext {}
+    impl IMContextImpl for SearchEntryIMContext {
+         fn retrieve_surrounding(&self) -> bool {
+            println!("?????");
+           /** let me = self.0.borrow_mut();
+            let context = me.context.borrow_mut();
+            let buffer =  &context.buf;
+            let obj = self.obj();
+           // obj.set_use_preedit(false);
+            obj.set_surrounding_with_selection("", 0, 0); */
+
+            true
+         }
+
+         fn commit(&self, _: &str) {
+            println!("commit");
+         }
+
+         fn preedit_start(&self) {
+            println!("PREDIT START");
+         }
+
+          fn filter_keypress(&self, event: &gdk::Event) -> bool {
+                // Print something easy to spot
+                let (preedit, cursor_pos, idx) = self.preedit_string();
+                println!("IM: filter_keypress {:?}", (preedit, cursor_pos, idx));
+
+                // Claim the event so GTK will call the other IM methods
+                false
+            }
+    }
+
 }
 
 glib::wrapper! {
-    pub struct SearchEntry(ObjectSubclass<inner::SearchEntry>)
-    @extends gtk::Widget, gtk::EntryBuffer, gtk::SearchEntry;
+    pub struct SearchEntry(ObjectSubclass<inner::SearchEntry>)  
+    @extends gtk::Widget, gtk::EntryBuffer; 
 }
 
 impl SearchEntry {
@@ -79,7 +132,20 @@ impl SearchEntry {
         obj
     }
 
-    pub fn get(&self) -> Ref<SearchEntryBuffer> {
+   /* pub fn get(&self) -> Ref<Self> {
         inner::SearchEntry::from_obj(self).0.borrow()
+    }*/
+}
+
+glib::wrapper! {
+    pub struct SearchEntryIMContext(ObjectSubclass<inner::SearchEntryIMContext>)  
+    @extends gtk::IMContext;
+}
+
+impl SearchEntryIMContext {
+    pub fn new() -> Self {
+        let obj = Object::new::<Self>();
+       // inner::SearchEntryIMContext::from_obj(&obj);
+        obj
     }
 }

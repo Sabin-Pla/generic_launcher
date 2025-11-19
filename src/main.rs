@@ -238,6 +238,7 @@ fn get_time_str() -> String {
     format!("{}", date_time.format("%a %d/%B %Y %H:%M:%S"))
 } 
 
+
 fn key_handler(_ec: &gtk::EventControllerKey, 
         key: gdk::Key, _: u32, m: gdk::ModifierType) -> gtk::glib::Propagation {
     println!("key {} {:?}", key, m);
@@ -546,13 +547,42 @@ unsafe fn startup(application: &gtk::Application) {
     launcher.search_context = Some(search_context);
     launcher.user_desktop_files = Some(desktop_entries.clone());
     launcher.custom_launchers = Some(custom_launchers);
+    
+
+
+   let ec = gtk::EventControllerKey::builder()
+        .propagation_phase(PropagationPhase::Capture).build();
+    ec.connect_key_pressed(key_handler);
+    w.add_controller(ec);
+    
+    let ec = gtk::EventControllerKey::builder()
+        .name("im_controller")
+        .propagation_phase(PropagationPhase::Capture).build();
     let search_entry = SearchEntry::new(buffer);
     launcher.input_buffer = Some(Rc::new(search_entry));
+    let im_context = search_buffer_imp::SearchEntryIMContext::new();
+
+    let im_simple = gtk::IMContextSimple::new();
+    ec.set_im_context(Some(&im_context));
+
     let mut input_field = gtk::Entry::builder().xalign(0.5)
         .buffer(&*launcher.input_buffer.clone().unwrap()).build();
     input_field.set_halign(gtk::Align::Center);
+    let test= |x: &search_buffer_imp::SearchEntryIMContext| {
+        println!("--------------");
+        println!("--------------");
+        println!("--------------");
+        println!("--------------");
+        todo!();
+    };
+   // ec.connect_im_update(test);
+    im_context.connect_preedit_changed(test);
+    input_field.add_controller(ec);
+    im_context.set_use_preedit(true);
     let context = input_field.style_context();
     context.add_class("input-field");
+    //todo!("{:?}", input_field.im_module());
+
     w.init_layer_shell();
 
     // w.auto_exclusive_zone_enable(); for persistent topbar
@@ -606,10 +636,6 @@ unsafe fn startup(application: &gtk::Application) {
     }
     launcher.search_result_frames = result_frames;
 
-    let ec = gtk::EventControllerKey::builder()
-        .propagation_phase(PropagationPhase::Capture).build();
-    ec.connect_key_pressed(key_handler);
-    w.add_controller(ec);
     let clock_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     let clock = gtk::Label::default();
     // let clock_seconds = gtk::Label::default();
@@ -617,8 +643,6 @@ unsafe fn startup(application: &gtk::Application) {
     let context = clock.style_context();
     context.add_class("clock");
     clock.set_xalign(0.0);
-    //let context = clock_seconds.style_context();
-    //context.add_class("clock-seconds");
     set_clock_time(&get_time_str(), &clock);
 
     let context = root.style_context();
@@ -700,7 +724,6 @@ unsafe fn startup(application: &gtk::Application) {
 
 }
 
-mod hyprland_features;
 
 fn main()  -> gtk::glib::ExitCode {
     unsafe {
@@ -709,7 +732,6 @@ fn main()  -> gtk::glib::ExitCode {
             Some("www.generic_launcher_example"), Default::default());
         application.set_accels_for_action("win.close", &["<Ctrl>C"]);
         application.connect_startup(|app| {
-            // not implemented yet std::thread::spawn(move || hyprland_features::draw_titlebars());
             startup(app);
             activate(app)
         });
