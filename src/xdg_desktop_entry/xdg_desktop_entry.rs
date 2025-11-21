@@ -1,11 +1,8 @@
-
-use gio::AppInfo;
-use gtk::prelude::AppInfoExt;
 use std::rc::Rc;
 use std::path::Path;
-use gio::DesktopAppInfo;
-use gio::prelude::AppLaunchContextExt;
-use gio::AppLaunchContext;
+
+use gtk::prelude::{AppInfoExt, AppLaunchContextExt};
+use gio::{AppInfo, AppLaunchContext, DesktopAppInfo};
 
 #[derive(Debug)]
 pub struct XdgDesktopEntry {
@@ -47,11 +44,10 @@ impl XdgDesktopEntry {
 	}	
 
 	pub fn on_app_launch(
-			_launch_context: &AppLaunchContext, 
-			_app_info: &AppInfo, 
+			_: &AppLaunchContext, 
+			app_info: &AppInfo, 
 			launched_event: &gtk::glib::Variant	) {
-		// https://docs.gtk.org/gio/signal.AppLaunchContext.launched.html get pid  
-		println!("{:?}", launched_event);
+		println!("Application launched: {:?} {:?}", launched_event, app_info);
 	}
 
 	pub fn launch(&self, action: Option<&str>) {
@@ -64,4 +60,3 @@ impl XdgDesktopEntry {
 		};
 	}
 }
-

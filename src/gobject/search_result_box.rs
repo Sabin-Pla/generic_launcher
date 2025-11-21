@@ -1,8 +1,12 @@
 use std::cell::RefMut;
+use std::cell::{Ref, RefCell};
+
 use gtk::glib::{self, Object};
 use gtk::ConstraintTarget;
 use gtk::subclass::prelude::*;
-use std::cell::{Ref, RefCell};
+use gtk::Buildable;
+use gtk::Accessible;
+use gtk::Actionable;
 
 pub struct SearchResultBoxWidget { 
 	pub idx_in_container: usize,
@@ -35,11 +39,6 @@ impl SearchResultBoxWidget {
         self.idx_in_search_result_vector = idx;
     } 
 }
-
-
-use gtk::Buildable;
-use gtk::Accessible;
-use gtk::Actionable;
 
 mod inner {
     use super::*;
