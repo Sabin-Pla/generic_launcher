@@ -34,7 +34,7 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher: &mut La
         .name("im_controller")
         .propagation_phase(PropagationPhase::Capture).build();
     let im_context = SearchEntryIMContext::new();
-    let im_simple = gtk::IMContextSimple::new();
+    let im_simple = gtk::IMContextSimple::new(); 
     ec.set_im_context(Some(&im_context));
 
     use crate::{xdg_desktop_entry, SearchEntryBuffer};
@@ -58,7 +58,7 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher: &mut La
     let context = search_bar.style_context();
     context.add_class("input-field");
 
-     use crate::LAUNCHER;
+    use crate::LAUNCHER;
 
     unsafe {
     	search_bar.connect_has_focus_notify(|_f| {
@@ -132,17 +132,14 @@ fn search_result_box(launcher: &mut Launcher) -> gtk::Box {
 
 fn screenshot_button(launcher: &mut Launcher, icon_theme: &gtk::IconTheme) -> gtk::Image {
     // todo!("set the sizes dynamically");
-    println!("-------- {:?}", icon_theme);
 	let screenshot_paintable = icon_theme.lookup_icon(
         "adwaita-applets-screenshooter-symbolic", &[], 
         32, 1, 
         gtk::TextDirection::None, 
         gtk::IconLookupFlags::PRELOAD);
-    println!("--------");
     let screenshot_icon = gtk::Image::from_paintable(Some(&screenshot_paintable));
     screenshot_icon.set_icon_size(gtk::IconSize::Large);
     screenshot_icon.set_focusable(true);
-
 
     unsafe {
         use crate::LAUNCHER;

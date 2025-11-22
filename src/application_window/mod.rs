@@ -44,6 +44,7 @@ pub fn populate(
         launcher: &mut Launcher) {
 
     let icon_theme = get_icon_theme(&application_settings);
+    setup_event_controllers(application_window);
 	initialize_widgets::root(application_window, launcher, &icon_theme);
 }
 
@@ -62,11 +63,8 @@ pub fn get_icon_theme(application_settings: &ApplicationSettings) -> gtk::IconTh
     let resource_path = application_settings.icons_file
         .path()
         .expect("Failed to parse path for icon file");
-    let resource_path = resource_path.to_str().expect("Erro converting icon theme resource path to string");
+    let resource_path = resource_path.to_str().expect("Error converting icon theme resource path to string");
     println!("icon theme resource path: {:?}", resource_path);
-    // resource_path /home/sabin/Applications/generic_launcher/assets
-    // search path ["/home/sabin/Applications/generic_launcher/assets"]
-    // icon_theme.set_resource_path(&[resource_path.expect("Error converitng resource path to str")]);
     icon_theme.set_resource_path(&[&resource_path]);
     icon_theme.set_search_path(&[Path::new(&resource_path)]);
     icon_theme
