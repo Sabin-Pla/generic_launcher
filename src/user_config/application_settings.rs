@@ -26,20 +26,15 @@ fn css_file() -> gio::File {
     let mut css_path = glib::user_config_dir();
     css_path.push("generic_launcher");
     css_path.push(&css_subpath);
-    let f = get_or_symlink(css_path, css_subpath);
-    use gtk::prelude::FileExt;
-    println!("Using css file: {:?}", f.path());
-    f
+    get_or_symlink(css_path, css_subpath)
 }
 
 fn icons_file() -> gio::File {
-	let icon_theme_subpath: PathBuf  = ["assets", "Adwaita"].iter().collect();
-	let mut installed_icon_path = glib::user_data_dir();
-	installed_icon_path.push("generic_launcher");
-	installed_icon_path = installed_icon_path.into_iter()
+	let icon_theme_subpath: PathBuf  = ["generic_launcher", "assets"].iter().collect();
+	let installed_icon_path = glib::user_data_dir().into_iter()
 		.chain(&icon_theme_subpath)
 		.collect();
-	get_or_symlink(installed_icon_path, icon_theme_subpath)
+	get_or_symlink(installed_icon_path, PathBuf::from("assets"))
 }
 
 fn get_or_symlink<P: AsRef<Path>>(path: P, fallback: P) -> gio::File {
@@ -52,11 +47,22 @@ fn get_or_symlink<P: AsRef<Path>>(path: P, fallback: P) -> gio::File {
             let fallback: PathBuf = install_dir.into_iter()
             	.chain(fallback.as_ref().iter())
             	.collect();
-            let _ = std::fs::create_dir(path.as_ref().parent().expect(
+
+			match std::fs::symlink_metadata(path.as_ref()) {
+				Ok(metadata) => {
+					if metadata.is_symlink() {
+						std::fs::remove_file(path.as_ref());
+					}
+				}
+				Err(..) => (),
+			}
+			let fallback = fallback.canonicalize().expect(
+				&format!("failed to cononicalize path {:?}", fallback));
+            let _ = std::fs::create_dir_all(path.as_ref().parent().expect(
             	"Failed to get parent dir of path"));
             let _ = std::os::unix::fs::symlink(&fallback, &path).expect(
             	"failed to make symlink");
-            println!("symlinked path {:?} {:?}", path.as_ref(), fallback. into_os_string());
+            println!("symlinked path {:?} {:?}", path.as_ref(), fallback.into_os_string());
           	gio::File::for_path(path)
         }
     }

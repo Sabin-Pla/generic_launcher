@@ -59,17 +59,15 @@ pub fn get_icon_theme(application_settings: &ApplicationSettings) -> gtk::IconTh
     let icon_theme = gtk::IconTheme::builder()
         .theme_name("Adwaita")
         .build();
-    let error_message = "Failed to parse path for icon file";
     let resource_path = application_settings.icons_file
         .path()
-        .expect(error_message);
-    let resource_path = resource_path.to_str();
-    let resource_path =  std::env::current_dir().expect("Error accessing CWD").into_os_string().into_string().unwrap();
+        .expect("Failed to parse path for icon file");
+    let resource_path = resource_path.to_str().expect("Erro converting icon theme resource path to string");
     println!("icon theme resource path: {:?}", resource_path);
+    // resource_path /home/sabin/Applications/generic_launcher/assets
+    // search path ["/home/sabin/Applications/generic_launcher/assets"]
     // icon_theme.set_resource_path(&[resource_path.expect("Error converitng resource path to str")]);
-    // icon_theme.set_search_path(&[Path::new(&resource_path.unwrap())]);
-
-     icon_theme.set_resource_path(&[&resource_path]);
-      icon_theme.set_resource_path(&[&resource_path]);
+    icon_theme.set_resource_path(&[&resource_path]);
+    icon_theme.set_search_path(&[Path::new(&resource_path)]);
     icon_theme
 }
