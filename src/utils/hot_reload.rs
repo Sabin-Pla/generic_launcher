@@ -10,10 +10,12 @@ use inotify::{
 use crate::launcher::Launcher;
 
 fn pipe_writer_thread(
-        path: &Path, 
+        watch_path: &Path, 
         pipe_box: Box<dyn Fn(i32) -> (i32, [c_char; 20])>) {
+    println!("Watch path: {:?}", watch_path);
     let mut inotify = Inotify::init().expect("Error while initializing inotify instance");
-    inotify.watches().add(path, WatchMask::MODIFY | WatchMask::CLOSE).expect("Failed to add file watch");
+    inotify.watches().add(watch_path, WatchMask::MODIFY | WatchMask::CLOSE)
+        .expect("Failed to add file watch");
     let (fd, buffer) = pipe_box(O_WRONLY); 
     let mut buffer2 = [0; 1024];
     loop {
@@ -22,6 +24,7 @@ fn pipe_writer_thread(
                 Ok(events) => {
                     println!("inotify event");
                     for event in events {
+                        println!("{:?}", event.mask);
                         if !matches!(event.mask, inotify::EventMask::CLOSE_NOWRITE) {
                             unsafe {
                                 libc::write(fd, buffer.as_ptr() as *mut c_void, 1);
@@ -41,26 +44,23 @@ fn pipe_writer_thread(
 
 
 pub fn attach(css_path: &Path, launcher: &mut Launcher) {
-    return;
     use crate::LAUNCHER;
     use crate::Arc;
     use gtk::prelude::FileExt;
     let mut launcher = unsafe { &mut LAUNCHER };
-	let mut pipe_path = unsafe { LAUNCHER.css_provider.clone().unwrap().0 };
-    let pipe_path =  pipe_path.path().expect("Error getting pathbuf for css provider");
-    pipe_path.to_path_buf().set_extension(&"pipe");
-    let mut j = 0;
-    for (i, c) in pipe_path.to_str().unwrap().chars().enumerate() {
-        launcher.fifo_path[i] = c as i8;
-        j=i+1;
-    }
-    launcher.fifo_path[j]= '\0' as i8;
+	let css_path = unsafe { LAUNCHER.css_provider.clone().unwrap().0 };
+    let css_path =  css_path.path().expect("Error getting pathbuf for css provider");
+    let mut pipe_path = css_path.to_path_buf();
+    pipe_path.add_extension(&"pipe");
     unsafe {
-        mkfifo(launcher.fifo_path.as_ptr() as *const i8, 0o666);
-    }
-
-    unsafe {
-        use crate::LAUNCHER;
+        let mut j = 0;
+        for (i, c) in pipe_path.to_str().unwrap().chars().enumerate() {
+            LAUNCHER.fifo_path[i] = c as i8;
+            j=i+1;
+        }
+        LAUNCHER.fifo_path[j]= '\0' as i8;
+        mkfifo(LAUNCHER.fifo_path.as_ptr() as *const i8, 0o666);
+    
         let open_pipe = move |flags| {
             let fd = libc::open(
                 LAUNCHER.fifo_path.as_ptr() as *const i8, 
@@ -75,7 +75,7 @@ pub fn attach(css_path: &Path, launcher: &mut Launcher) {
 
         use gtk::prelude::FileExt;
         let thread_writer_wrapper = move || {
-            pipe_writer_thread(&pipe_path, pipe_box)
+            pipe_writer_thread(&css_path, pipe_box)
         };
 
         match glib::ThreadPool::shared(Some(1)) {
@@ -100,8 +100,8 @@ pub fn attach(css_path: &Path, launcher: &mut Launcher) {
                     panic!("{:?}", &std::io::Error::last_os_error());
                 }
                 let contents = format!("{:?}", String::from_utf8(buffer.to_vec().iter().map(|i| *i as u8).collect()));
-                print!("{}", contents);
-                launcher.reload_css();
+                println!("contents: {}", contents);
+                LAUNCHER.reload_css();
                 glib::ControlFlow::Continue
             }
         );
