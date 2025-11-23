@@ -7,7 +7,7 @@ use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use gtk::PropagationPhase;
 
-use crate::ApplicationSettings;
+use crate::{ApplicationSettings, Arc, Mutex};
 use crate::launcher::Launcher;
 
 pub fn initialize(application: &gtk::Application) -> gtk::ApplicationWindow {
@@ -41,20 +41,12 @@ pub fn initialize(application: &gtk::Application) -> gtk::ApplicationWindow {
 pub fn populate(
         application_window: &mut gtk::ApplicationWindow, 
         application_settings: &ApplicationSettings,
-        launcher: &mut Launcher) {
+        launcher: Arc<Mutex<Launcher>>) {
 
     let icon_theme = get_icon_theme(&application_settings);
-    setup_event_controllers(application_window);
+    event_handler::attach_window_key_handler(application_window, launcher.clone());
 	initialize_widgets::root(application_window, launcher, &icon_theme);
 }
-
-pub fn setup_event_controllers(application_window: &mut gtk::ApplicationWindow) {
-    let ec = gtk::EventControllerKey::builder()
-        .propagation_phase(PropagationPhase::Capture).build();
-    ec.connect_key_pressed(event_handler::key_handler);
-    application_window.add_controller(ec);
-}
-
 
 pub fn get_icon_theme(application_settings: &ApplicationSettings) -> gtk::IconTheme {
     let icon_theme = gtk::IconTheme::builder()

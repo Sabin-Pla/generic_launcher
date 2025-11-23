@@ -1,5 +1,5 @@
 use std::os::raw::c_char;
-use crate::Path;
+use crate::{Arc, Mutex, Path};
 
 use libc::{c_void, mkfifo, O_RDONLY, O_WRONLY};
 use inotify::{
@@ -43,28 +43,28 @@ fn pipe_writer_thread(
 
 
 
-pub fn attach(css_path: &Path, launcher: &mut Launcher) {
-    use crate::LAUNCHER;
-    use crate::Arc;
+pub fn attach(css_path: &Path, launcher_arc: Arc<Mutex<Launcher>>) {
     use gtk::prelude::FileExt;
-    let mut launcher = unsafe { &mut LAUNCHER };
-	let css_path = unsafe { LAUNCHER.css_provider.clone().unwrap().0 };
+    let mut launcher = launcher_arc.lock().unwrap();
+	let css_path = launcher.css_provider.clone().unwrap().0;
     let css_path =  css_path.path().expect("Error getting pathbuf for css provider");
-    let mut pipe_path = css_path.to_path_buf();
+    let mut pipe_path = css_path.to_path_buf().clone();
     pipe_path.add_extension(&"pipe");
     unsafe {
         let mut j = 0;
+        let mut fifo_path = ['\0' as i8; 2000];
         for (i, c) in pipe_path.to_str().unwrap().chars().enumerate() {
-            LAUNCHER.fifo_path[i] = c as i8;
+            fifo_path[i] = c as i8;
             j=i+1;
         }
-        LAUNCHER.fifo_path[j]= '\0' as i8;
-        mkfifo(LAUNCHER.fifo_path.as_ptr() as *const i8, 0o666);
-    
+        fifo_path[j] = '\0' as i8;
+        let path = fifo_path.clone();
+        let p = fifo_path.as_ptr() as *const i8;
+        mkfifo(p, 0o666);
+        let p = Arc::new(Mutex::new(p));
+        let launcher_arc_pipe = launcher_arc.clone();
         let open_pipe = move |flags| {
-            let fd = libc::open(
-                LAUNCHER.fifo_path.as_ptr() as *const i8, 
-                flags);
+            let fd = libc::open(path.as_ptr() as *const i8, flags);
             if fd < 0 {
                 panic!("failed to open pipe {:?}", &std::io::Error::last_os_error());
             }
@@ -94,6 +94,7 @@ pub fn attach(css_path: &Path, launcher: &mut Launcher) {
         glib::source::unix_fd_add_local(
             fd, 
             glib::IOCondition::IN, move |_, _d| {
+                let mut launcher = launcher_arc_pipe.lock().unwrap();
                 let bytes_read = libc::read(fd, buffer.as_ptr() as *mut c_void, 20); 
                 println!("bytes_read {:?}", bytes_read);
                 if bytes_read == 0 {
@@ -101,7 +102,7 @@ pub fn attach(css_path: &Path, launcher: &mut Launcher) {
                 }
                 let contents = format!("{:?}", String::from_utf8(buffer.to_vec().iter().map(|i| *i as u8).collect()));
                 println!("contents: {}", contents);
-                LAUNCHER.reload_css();
+                launcher.reload_css();
                 glib::ControlFlow::Continue
             }
         );

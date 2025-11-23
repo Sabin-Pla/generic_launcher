@@ -2,8 +2,8 @@ use crate::HashMap;
 
 use gtk::prelude::*;
 
-use crate::{Arc, Rc, RefCell};
-use crate::gobject::{SearchResultBox, SearchEntry, SearchEntryBuffer};
+use crate::{Arc, Mutex, Rc, RefCell};
+use crate::gobject::{SearchResultBox, SearchEntryBuffer};
 use crate::xdg_desktop_entry::XdgDesktopEntry;
 use crate::search;
 use crate::search::{SearchContext};
@@ -19,13 +19,12 @@ pub struct Launcher {
     pub css_provider: Option<(
         Arc<gio::File>, 
         Rc<gtk::CssProvider>)>,
-    pub fifo_path: [i8; 2000],
     pub search_result_frames: Vec<SearchResultBox>,
     pub selected_search_idx: Option<isize>,
     pub text_input: Option<Rc<gtk::Entry>>,
     pub user_desktop_files: Option<Rc<Vec<XdgDesktopEntry>>>,
-    pub search_context: Option<Rc<RefCell<SearchContext>>>,
-    pub input_buffer: Option<Rc<SearchEntry>>,
+    pub search_context: SearchContext,
+    pub input_buffer: Option<Rc<SearchEntryBuffer>>,
     pub custom_launchers: Option<Rc<Vec<XdgDesktopEntry>>>,
     pub screenshot_button: Option<Rc<gtk::Image>>,
     pub hovered_idx: usize,
@@ -36,6 +35,26 @@ pub struct Launcher {
 
 
 impl Launcher {
+    pub fn uninitialized() -> Self {
+        Launcher { 
+            state: State::NotStarted, 
+            done_init: false,
+            css_provider: None,
+            search_result_frames: vec!(),
+            selected_search_idx: None,
+            text_input: None,
+            user_desktop_files: None,
+            search_context: SearchContext::default(),
+            input_buffer: None,
+            custom_launchers: None,
+            screenshot_button: None,
+            hovered_idx: 0,
+            clock: None,
+            clock_sizes: None,
+            current_monitor: None,
+        }
+    }
+
     pub fn clear_search_results(&mut self) {
         for result_box in &self.search_result_frames {
             result_box.set_focusable(false);
@@ -90,7 +109,7 @@ impl Launcher {
                 let next_search_result_idx = self.search_result_frames[
                     RESULT_ENTRY_COUNT - 1].get_idx_in_search_result_vector() + 1;
                 let next_result_desktop_idx = search::get_xdg_index_from_last_search_result_idx(
-                    &self.search_context.clone().unwrap().borrow(), next_search_result_idx);
+                    &self.search_context, next_search_result_idx);
                 let next_result_desktop_idx = match next_result_desktop_idx {
                     Some(idx) => idx,
                     None => return
@@ -153,7 +172,7 @@ impl Launcher {
 
     pub fn deselect_text(&mut self) {
         let input = self.text_input.clone().unwrap();
-        let pos = (*self.search_context.clone().unwrap()).borrow().buf.len() as i32;
+        let pos = self.search_context.buf.len() as i32;
         input.select_region(pos - 1, pos - 1);
     }
 
@@ -167,10 +186,5 @@ impl Launcher {
         };
         let clock_sizes = &mut self.clock_sizes;
         *clock_sizes = Some(HashMap::new());
-    }
-
-    pub fn set_clock_size(&mut self, application_window: &gtk::ApplicationWindow) {
-        let clock = self.clock.clone().expect("cannot set uninitialized clock");
-        clock::set_clock_size(application_window, &mut self.clock_sizes, clock);
     }
 }

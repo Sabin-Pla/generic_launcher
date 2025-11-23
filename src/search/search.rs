@@ -2,9 +2,7 @@ use super::*;
 use crate::xdg_desktop_entry::XdgDesktopEntry;
 use crate::utils;
 use crate::launcher;
-
-use crate::launcher::RESULT_ENTRY_COUNT;
-use crate::LAUNCHER;
+use crate::launcher::{RESULT_ENTRY_COUNT, Launcher};
 
 fn get_search_score_for(entry: &XdgDesktopEntry, mut query_string: String) -> usize {
 	let mut app_name = entry.display_name.clone();
@@ -41,53 +39,49 @@ fn fetch_search_results(context: &SearchContext) -> SearchResult {
 	results
 }
 
-pub fn display_search_results(results: SearchResult) {
-	unsafe {
-		LAUNCHER.clear_search_results();
-		let mut counter = 0;
-		for (idx, desktop_idx) in results.iter().enumerate() {
-			if counter >= RESULT_ENTRY_COUNT {
-				break;
-			}
-			LAUNCHER.set_search_frame(*desktop_idx, counter, idx);
-			counter += 1;
+pub fn display_search_results(launcher: &mut Launcher, results: SearchResult) {
+	launcher.clear_search_results();
+	let mut counter = 0;
+	for (idx, desktop_idx) in results.iter().enumerate() {
+		if counter >= RESULT_ENTRY_COUNT {
+			break;
 		}
+		launcher.set_search_frame(*desktop_idx, counter, idx);
+		counter += 1;
 	}
 }
 
-pub fn text_inserted(context: &mut SearchContext, position: usize, chars: &str) {
-	let buf = &mut (context.buf);
+pub fn text_inserted(launcher: &mut Launcher, position: usize, chars: &str) {
+	let buf = &mut (launcher.search_context.buf);
 	// buffer is not garuanteed to be full of utf8 characters, so we can't just
 	// insert the char at the given position 
     buf.insert_str(utils::char_position(buf, position), chars);
-    let search_results = fetch_search_results(context);
-    context.result_cache = search_results.clone();
-    display_search_results(search_results)
+    let search_results = fetch_search_results(&launcher.search_context);
+    launcher.search_context.result_cache = search_results.clone();
+    display_search_results(launcher, search_results)
 }
 
-pub fn text_deleted(context: &mut SearchContext, position: usize, n_chars: Option<u32>) {
+pub fn text_deleted(launcher: &mut Launcher, position: usize, n_chars: Option<u32>) {
 	// position is one less than the number of chars after which the cursor is placed
 	// n_chars is Some(1) when 
-	let buf = &mut (context.buf);
-	let position_idx = utils::char_position(buf, position);
+	let position_idx = utils::char_position(&launcher.search_context.buf, position);
 
 	if let Some(n) = n_chars {
-		let end_idx = utils::char_position(&buf[position_idx..], n as usize);
-		println!("Draining {buf} {position_idx}..{end_idx} {n}");
-		buf.drain(position_idx..position_idx+end_idx);
+		let end_idx = utils::char_position(&launcher.search_context.buf[position_idx..], n as usize);
+		println!("Draining {} {position_idx}..{end_idx} {n}", &launcher.search_context.buf);
+		&launcher.search_context.buf.drain(position_idx..position_idx+end_idx);
 	} else {
-		buf.drain(position_idx..);
+		&launcher.search_context.buf.drain(position_idx..);
 	}
 
-	unsafe {
-		if let launcher::State::Hidden = LAUNCHER.state {	
-			return
-		}
+	
+	if let launcher::State::Hidden = launcher.state {	
+		return
 	}
-
-	let search_results = fetch_search_results(context);
-	context.result_cache = search_results.clone();
-	display_search_results(search_results);
+	
+	let search_results = fetch_search_results(&launcher.search_context);
+	launcher.search_context.result_cache = search_results.clone();
+	display_search_results(launcher, search_results);
 }
 
 pub fn get_xdg_index_from_last_search_result_idx(context: &SearchContext, idx: usize) -> Option<usize> {

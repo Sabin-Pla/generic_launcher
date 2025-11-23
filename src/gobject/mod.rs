@@ -1,9 +1,7 @@
-mod search_entry;
 mod search_entry_im_context;
 mod search_entry_buffer;
 mod search_result_box;
 
-pub use search_entry::SearchEntry;
 pub use search_entry_buffer::SearchEntryBuffer;
 pub use search_result_box::{SearchResultBox, SearchResultBoxWidget};
 pub use search_entry_im_context::{SearchEntryIMContext};
