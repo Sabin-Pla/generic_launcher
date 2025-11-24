@@ -55,78 +55,18 @@ pub fn attach_window_key_handler(
             gdk::Key::Escape => {
                 println!("Hiding window");
                 launcher::hide_window(launcher_cell_capture.clone());
-                return gtk::glib::Propagation::Stop
+                return gtk::glib::Propagation::Stop;
             },
             gdk::Key::Return => {
                 println!("RETURN PRESSED");
                 launcher::handle_enter_key(launcher_cell_capture.clone());
-                return gtk::glib::Propagation::Proceed
             },
             gdk::Key::Down => {
                 launcher::scroll_search_results_down(launcher_cell_capture.clone());
-                return gtk::glib::Propagation::Proceed
-            },
-            gdk::Key::BackSpace => {
-
-                // if this is not here backspace deletes all characters
-                let launcher = launcher_cell_capture.borrow();
-                match launcher.selected_search_idx {
-                    Some(_) => {
-                         drop(launcher);
-                         launcher::focus_text_input(launcher_cell_capture.clone());
-                    },
-                    None => {
-                        drop(launcher);
-                    },
-                };
-                
-                let mut launcher = launcher_cell_capture.borrow_mut();
-                let input = launcher.text_input.clone().unwrap();
-                let buffer = launcher.input_buffer.clone().unwrap();
-                let buffer = buffer.borrow();
-                let pos = (*buffer).length() as i32;
-                println!("pos {pos}");
-
-                input.delete_text(pos -1, pos);
-                let buffer = launcher.input_buffer.as_ref().unwrap();
-                let buffer = buffer.borrow().clone();
-                let buffer = buffer.text();
-                let buffer = buffer.borrow().clone();
-                let search_context = &mut launcher.search_context;
-                println!("search::text_deleted(search_context, \"{}\")", &buffer);
-                let search_results = search::text_deleted(search_context, buffer); 
-                search::display_search_results(&mut launcher, search_results);
-                input.select_region(pos - 1, pos - 1);
-                return gtk::glib::Propagation::Proceed
             },
             _ => ()
         };
-
-        match key.to_unicode() {
-            Some('\r')|None => gtk::glib::Propagation::Proceed,
-            Some(character) => {
-                println!("Processing character |{}|", character as u8);
-                launcher::focus_text_input(launcher_cell_capture.clone());
-                let mut launcher = launcher_cell_capture.borrow_mut();
-                let buffer = launcher.input_buffer.as_ref().unwrap();
-                let buffer = buffer.borrow().clone();
-                let pos = (buffer).length() as i32;
-                let buffer = buffer.text();
-                let buffer = buffer.borrow().clone();
-                let input = launcher.text_input.clone().unwrap();
-
-                // doesn't actually modify buffer used in widget
-                let mut buffer = buffer.to_string().clone();
-
-                buffer.push(character);
-                let search_context = &mut launcher.search_context;
-                println!("search::text_inserted(search_context, \"{buffer}\")");
-                let search_results = search::text_inserted(search_context, buffer); 
-                search::display_search_results(&mut launcher, search_results);
-                input.select_region(pos, pos);
-                gtk::glib::Propagation::Proceed
-            }
-        }
+        gtk::glib::Propagation::Proceed
     };
 
     eck_capture.connect_key_pressed(key_handler_capture);

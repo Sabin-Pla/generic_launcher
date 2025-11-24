@@ -51,13 +51,7 @@ pub fn display_search_results(launcher: &mut Launcher, results: SearchResult) {
 	}
 }
 
-pub fn text_inserted(search_context: &mut SearchContext, buffer: String) -> SearchResult {
-    let search_results = fetch_search_results(&search_context, buffer);
-    search_context.result_cache = search_results.clone();
-    search_results
-}
-
-pub fn text_deleted(search_context: &mut SearchContext, buffer: String) -> SearchResult  {
+pub fn refetch_results(search_context: &mut SearchContext, buffer: String) -> SearchResult  {
 	// position is one less than the number of chars after which the cursor is placed
 	// n_chars is Some(1) when 
 

@@ -60,10 +60,22 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_cell: Rc
     drop(launcher); // gtk entry builder.buffer() tries to grab mutex so drop and relock
 	let mut search_bar = gtk::Entry::builder().xalign(0.5)
         .buffer(&*buffer).build();
+
+    let launcher_cell_buffer_changed = launcher_cell.clone();
     let mut launcher = launcher_cell.borrow_mut();
 
     search_bar.set_halign(gtk::Align::Center);
     search_bar.add_controller(ec);
+    
+    search_bar.connect_changed(move |buffer| {
+        let buffer = buffer.text().to_string();
+        println!("SEARCH BAR CHANGED {buffer}");
+        let launcher_cell = launcher_cell_buffer_changed.clone();
+        let mut launcher = launcher_cell.borrow_mut();
+        use crate::search;
+        let search_results = search::refetch_results(&mut launcher.search_context, buffer);
+        search::display_search_results(&mut launcher, search_results);
+    });
     im_context.set_use_preedit(true);
     let context = search_bar.style_context();
     context.add_class("input-field");

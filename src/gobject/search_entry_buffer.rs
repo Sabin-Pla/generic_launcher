@@ -26,7 +26,6 @@ mod inner {
     impl ObjectImpl for SearchEntryBuffer {}
     impl EntryBufferImpl for SearchEntryBuffer {
     	fn inserted_text(&self, position: u32, chars: &str) {
-            let position = position as usize;
     		println!("text inserted at position {position}| {} {}", chars.len(), chars);
             if chars.len() == 1 && chars.as_bytes()[0] == 13 {
                 return; // carrage return ascii, don't add control chars to buffer.
@@ -34,8 +33,10 @@ mod inner {
             let mut buf = self.0.borrow_mut();
             // buffer is not garuanteed to be full of utf8 characters, so we can't just
             // insert the char at the given position 
-            let position = utils::char_position(&buf, position);
-            buf.insert_str(position, chars);
+            let position_idx = utils::char_position(&buf, position as usize);
+            buf.insert_str(position_idx, chars);
+            drop(buf);
+            self.parent_inserted_text((position as usize).try_into().unwrap(), chars);
     	}
 
         fn text(&self) -> glib::GString {
@@ -45,9 +46,8 @@ mod inner {
 
         fn deleted_text(&self, position: u32, n_chars: Option<u32>) { 
             println!("SearchEntryBuffer deleted_text()");
-            let position = position as usize;
             let mut buf = self.0.borrow_mut();
-            let position_idx = utils::char_position(&buf, position);
+            let position_idx = utils::char_position(&buf, position as usize);
 
             if let Some(n) = n_chars {
                 let end_idx = utils::char_position(&buf[position_idx..], n as usize);
@@ -57,6 +57,9 @@ mod inner {
                 &buf.drain(position_idx..);
             }
             println!("deleted text: {position}");
+            drop(buf);
+
+            self.parent_deleted_text(position, n_chars);
         }
 
         fn length(&self) -> u32 {
