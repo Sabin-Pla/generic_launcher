@@ -2,7 +2,7 @@ use crate::HashMap;
 
 use gtk::prelude::*;
 
-use crate::{Arc, Mutex, Rc, RefCell};
+use crate::{Rc, RefCell};
 use crate::gobject::{SearchResultBox, SearchEntryBuffer};
 use crate::xdg_desktop_entry::XdgDesktopEntry;
 use crate::search;
@@ -16,7 +16,7 @@ use crate::WINDOW;
 pub struct Launcher {
     pub state: State,
     pub css_provider: Option<(
-        Arc<gio::File>, 
+        std::sync::Arc<gio::File>, 
         Rc<gtk::CssProvider>)>,
     pub search_result_frames: Vec<SearchResultBox>,
     pub selected_search_idx: Option<isize>,
@@ -128,8 +128,8 @@ impl Launcher {
     }
 }
 
-pub fn handle_enter_key(launcher_cell: Arc<Mutex<Launcher>>) {
-    let mut launcher = launcher_cell.lock().unwrap();
+pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
+    let mut launcher = launcher_cell.borrow_mut();
     if let Some(_idx) = launcher.selected_search_idx {
         launcher.launch_selected_application();
         drop(launcher);
@@ -143,19 +143,19 @@ pub fn handle_enter_key(launcher_cell: Arc<Mutex<Launcher>>) {
 }
 
 
-pub fn hide_window(launcher: Arc<Mutex<Launcher>>) {
+pub fn hide_window(launcher: Rc<RefCell<Launcher>>) {
     WINDOW.with( |application_window| {
             let mut application_window = (*application_window).borrow_mut();
             let application_window = application_window.as_mut().unwrap();
             application_window.set_visible(false);
-            let mut launcher = launcher.lock().unwrap();
+            let mut launcher = launcher.borrow_mut();
             launcher.state = State::Hidden;
         }
     );
 }
 
-pub fn scroll_search_results_down(launcher: Arc<Mutex<Launcher>>) {
-    let mut launcher = launcher.lock().unwrap();
+pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
+    let mut launcher = launcher.borrow_mut();
     // launcher.deselect_text();
     const END_IDX: isize = (RESULT_ENTRY_COUNT - 1) as isize;
     match launcher.selected_search_idx {
@@ -183,8 +183,8 @@ pub fn scroll_search_results_down(launcher: Arc<Mutex<Launcher>>) {
     }
 }
 
-pub fn focus_text_input(launcher: Arc<Mutex<Launcher>>) {
-    let mut launcher = launcher.lock().unwrap();
+pub fn focus_text_input(launcher: Rc<RefCell<Launcher>>) {
+    let mut launcher = launcher.borrow_mut();
     let text_input = launcher.text_input.clone().unwrap();
     drop(launcher);
     text_input.grab_focus();

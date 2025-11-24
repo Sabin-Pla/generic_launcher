@@ -1,4 +1,4 @@
-use crate::{Arc, Rc, RefCell, HashMap, Mutex};
+use crate::{Rc, RefCell, HashMap, Mutex};
 
 use gtk::PropagationPhase;
 use gtk::prelude::*;
@@ -12,7 +12,7 @@ use crate::gobject::{SearchResultBox, SearchResultBoxWidget, SearchEntryIMContex
 
 use super::event_handler;
 
-pub fn root(application_window: &mut gtk::ApplicationWindow, launcher: Arc<Mutex<Launcher>>, icon_theme: &gtk::IconTheme) {
+pub fn root(application_window: &mut gtk::ApplicationWindow, launcher: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) {
 	let root_box = gtk::Box::new(gtk::Orientation::Vertical, 9);
 	let root_style = root_box.style_context();
     root_style.add_class("root");
@@ -22,7 +22,7 @@ pub fn root(application_window: &mut gtk::ApplicationWindow, launcher: Arc<Mutex
     application_window.set_child(Some(&root_box));
 }
 
-fn topbar(launcher: Arc<Mutex<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::CenterBox {
+fn topbar(launcher: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::CenterBox {
 	let topbar = gtk::CenterBox::builder()
         .orientation(gtk::Orientation::Horizontal)
         .build();
@@ -31,10 +31,10 @@ fn topbar(launcher: Arc<Mutex<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::C
 	topbar
 }
 
-fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_arc: Arc<Mutex<Launcher>>) -> gtk::Entry {
-    let launcher_arc_focus = launcher_arc.clone();
-    let launcher_arc_search_entry = launcher_arc.clone();
-    let mut launcher = launcher_arc.lock().unwrap();
+fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
+    let launcher_cell_focus = launcher_cell.clone();
+    let launcher_cell_search_entry = launcher_cell.clone();
+    let mut launcher = launcher_cell.borrow_mut();
 
 	let ec = gtk::EventControllerKey::builder()
         .name("im_controller")
@@ -60,7 +60,7 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_arc: Arc
     drop(launcher); // gtk entry builder.buffer() tries to grab mutex so drop and relock
 	let mut search_bar = gtk::Entry::builder().xalign(0.5)
         .buffer(&*buffer).build();
-    let mut launcher = launcher_arc.lock().unwrap();
+    let mut launcher = launcher_cell.borrow_mut();
 
     search_bar.set_halign(gtk::Align::Center);
     search_bar.add_controller(ec);
@@ -76,10 +76,10 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_arc: Arc
 
     drop(launcher); // accessing buffer locks mutex...
     search_bar.set_placeholder_text(Some("Applications"));
-    let mut launcher = launcher_arc.lock().unwrap();
+    let mut launcher = launcher_cell.borrow_mut();
 
     search_bar.connect_has_focus_notify(move |_f| {
-        let mut launcher = launcher_arc_focus.lock().unwrap();
+        let mut launcher = launcher_cell_focus.borrow_mut();
         launcher.selected_search_idx = None;
     });
     
@@ -88,7 +88,7 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_arc: Arc
     search_bar.clone()
 }
 
-fn search_result_box(launcher_arc: Arc<Mutex<Launcher>>) -> gtk::Box {
+fn search_result_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
 
 	let result_box = gtk::Box::new(gtk::Orientation::Vertical, 5);
 
@@ -105,32 +105,32 @@ fn search_result_box(launcher_arc: Arc<Mutex<Launcher>>) -> gtk::Box {
         let ecm = gtk::EventControllerMotion::builder()
             .propagation_phase(PropagationPhase::Capture).build();
 
-        let launcher_arc_gc = launcher_arc.clone();
+        let launcher_cell_gc = launcher_cell.clone();
 
         gesture_click.connect_pressed(move |_, _, _, _| {
-            let mut launcher = launcher_arc_gc.lock().unwrap();
+            let mut launcher = launcher_cell_gc.borrow_mut();
             if launcher.search_result_frames[i].has_focus() {
                 launcher.launch_selected_application();
                 drop(launcher);
-                launcher::hide_window(launcher_arc_gc.clone());
+                launcher::hide_window(launcher_cell_gc.clone());
             } else {
                 launcher.search_result_frames[i].grab_focus();
             }
         });
 
-        let launcher_arc_ecm = launcher_arc.clone();
+        let launcher_cell_ecm = launcher_cell.clone();
     
         ecm.connect_enter(move |_, _, _| { 
-            let mut launcher = launcher_arc_ecm.lock().unwrap();
+            let mut launcher = launcher_cell_ecm.borrow_mut();
             launcher.handle_hovered(i) 
         });
         result_box.add_controller(gesture_click);
         result_box.add_controller(ecm);
 
-        let launcher_arc_focus = launcher_arc.clone();
+        let launcher_cell_focus = launcher_cell.clone();
 
         result_box.connect_has_focus_notify(move |f| {
-            let mut launcher = launcher_arc_focus.lock().unwrap();
+            let mut launcher = launcher_cell_focus.borrow_mut();
             launcher.selected_search_idx = Some(
                 f.get().idx_in_container.try_into().unwrap());
         });
@@ -143,15 +143,15 @@ fn search_result_box(launcher_arc: Arc<Mutex<Launcher>>) -> gtk::Box {
     for f in &result_frames  {
         result_box.append(f);
     }
-    let mut launcher = launcher_arc.lock().unwrap();
+    let mut launcher = launcher_cell.borrow_mut();
     launcher.search_result_frames = result_frames;
     result_box
 }
 
-fn screenshot_button(launcher_arc: Arc<Mutex<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::Image {
-    event_handler::attach_screenshot_handlers(launcher_arc.clone());
-    let launcher_arc_connect_focus = launcher_arc.clone();
-    let mut launcher = launcher_arc.lock().unwrap();
+fn screenshot_button(launcher_cell: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::Image {
+    event_handler::attach_screenshot_handlers(launcher_cell.clone());
+    let launcher_cell_connect_focus = launcher_cell.clone();
+    let mut launcher = launcher_cell.borrow_mut();
 
     // todo!("set the sizes dynamically");
 	let screenshot_paintable = icon_theme.lookup_icon(
@@ -165,7 +165,7 @@ fn screenshot_button(launcher_arc: Arc<Mutex<Launcher>>, icon_theme: &gtk::IconT
 
     
     screenshot_icon.connect_has_focus_notify(move |_| {
-        let mut launcher = launcher_arc_connect_focus.lock().unwrap();
+        let mut launcher = launcher_cell_connect_focus.borrow_mut();
         launcher.selected_search_idx = Some(-1);
     });
 
@@ -179,8 +179,8 @@ fn screenshot_button(launcher_arc: Arc<Mutex<Launcher>>, icon_theme: &gtk::IconT
     screenshot_icon
 }
 
-fn clock_box(launcher_arc: Arc<Mutex<Launcher>>) -> gtk::Box {
-    let mut launcher = launcher_arc.lock().unwrap();
+fn clock_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
+    let mut launcher = launcher_cell.borrow_mut();
 	let clock_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     let clock = gtk::Label::default();
     launcher.clock = Some(Rc::new(RefCell::new(clock.clone())));
@@ -190,6 +190,6 @@ fn clock_box(launcher_arc: Arc<Mutex<Launcher>>) -> gtk::Box {
     clock_style.add_class("clock");
     clock.set_xalign(0.0);
     clock::set_clock_time(&clock::get_time_str(), &clock);
-    event_handler::setup_on_clock_tick(launcher_arc.clone());
+    event_handler::setup_on_clock_tick(launcher_cell.clone());
     clock_box
 }

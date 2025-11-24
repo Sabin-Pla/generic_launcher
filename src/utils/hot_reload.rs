@@ -1,5 +1,5 @@
 use std::os::raw::c_char;
-use crate::{Arc, Mutex, Path};
+use crate::{Rc, RefCell, Path};
 
 use libc::{c_void, mkfifo, O_RDONLY, O_WRONLY};
 use inotify::{
@@ -43,9 +43,9 @@ fn pipe_writer_thread(
 
 
 
-pub fn attach(css_path: &Path, launcher_arc: Arc<Mutex<Launcher>>) {
+pub fn attach(css_path: &Path, launcher_cell: Rc<RefCell<Launcher>>) {
     use gtk::prelude::FileExt;
-    let mut launcher = launcher_arc.lock().unwrap();
+    let mut launcher = launcher_cell.borrow_mut();
 	let css_path = launcher.css_provider.clone().unwrap().0;
     let css_path =  css_path.path().expect("Error getting pathbuf for css provider");
     let mut pipe_path = css_path.to_path_buf().clone();
@@ -61,8 +61,8 @@ pub fn attach(css_path: &Path, launcher_arc: Arc<Mutex<Launcher>>) {
         let path = fifo_path.clone();
         let p = fifo_path.as_ptr() as *const i8;
         mkfifo(p, 0o666);
-        let p = Arc::new(Mutex::new(p));
-        let launcher_arc_pipe = launcher_arc.clone();
+        let p = std::sync::Arc::new(std::sync::Mutex::new(p));
+        let launcher_cell_pipe = launcher_cell.clone();
         let open_pipe = move |flags| {
             let fd = libc::open(path.as_ptr() as *const i8, flags);
             if fd < 0 {
@@ -94,7 +94,7 @@ pub fn attach(css_path: &Path, launcher_arc: Arc<Mutex<Launcher>>) {
         glib::source::unix_fd_add_local(
             fd, 
             glib::IOCondition::IN, move |_, _d| {
-                let mut launcher = launcher_arc_pipe.lock().unwrap();
+                let mut launcher = launcher_cell_pipe.borrow_mut();
                 let bytes_read = libc::read(fd, buffer.as_ptr() as *mut c_void, 20); 
                 println!("bytes_read {:?}", bytes_read);
                 if bytes_read == 0 {

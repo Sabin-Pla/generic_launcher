@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 
-use crate::{Arc, Duration, HashMap, Mutex, Rc};
+use crate::{Duration, HashMap, Rc, RefCell};
 use std::collections::hash_map::Entry::{Vacant, Occupied};
 use crate::launcher::Launcher;
 
@@ -14,9 +14,9 @@ pub fn set_clock_time(time: &String, clock: &gtk::Label) {
     clock.set_text(&time);
 }
 
-fn show_clock(launcher: Arc<Mutex<Launcher>>) {
+fn show_clock(launcher: Rc<RefCell<Launcher>>) {
      println!("qqq");
-    let mut launcher = launcher.lock().unwrap();
+    let mut launcher = launcher.borrow_mut();
      println!("qqq");
     let current_monitor = launcher.current_monitor.clone().expect("current monitor not set"); 
     let clock = launcher.clock.clone().expect("Clock not initialized");
@@ -40,9 +40,9 @@ fn show_clock(launcher: Arc<Mutex<Launcher>>) {
 
 pub fn set_clock_size(
         application_window: &gtk::ApplicationWindow, 
-        launcher_arc: Arc<Mutex<Launcher>>) {
-    let launcher_arc_clock = launcher_arc.clone();
-    let mut launcher = launcher_arc.lock().unwrap();
+        launcher_cell: Rc<RefCell<Launcher>>) {
+    let launcher_cell_clock = launcher_cell.clone();
+    let mut launcher = launcher_cell.borrow_mut();
     println!("qqq");
 
     let clock = launcher.clock.clone().expect("cannot set uninitialized clock");
@@ -67,7 +67,7 @@ pub fn set_clock_size(
             // hide the clock while it loads.
             clock.set_opacity(0.0);
             let show_clock_wrapper = || {
-                let v = show_clock(launcher_arc_clock);
+                let v = show_clock(launcher_cell_clock);
                 println!("exiting wrapper");
                 v
             };
@@ -97,7 +97,7 @@ pub fn set_clock_size(
             println!("v");
             let p = pad_clock();
             println!("v");
-            let mut launcher = launcher_arc.lock().unwrap();
+            let mut launcher = launcher_cell.borrow_mut();
             let clock_sizes = launcher.clock_sizes.as_mut();
             let clock_sizes = clock_sizes.expect("clock_sizes not defined");
             clock_sizes.insert((w, h) , p);
@@ -105,7 +105,7 @@ pub fn set_clock_size(
         }
     };
     println!("v-- set_size_request()");
-    let mut launcher = launcher_arc.lock().unwrap();
+    let mut launcher = launcher_cell.borrow_mut();
     clock.set_size_request(clock_width, 40);
 }
 
