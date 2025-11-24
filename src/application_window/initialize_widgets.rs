@@ -4,6 +4,7 @@ use gtk::PropagationPhase;
 use gtk::prelude::*;
 use gtk4_layer_shell::{KeyboardMode, LayerShell};
 
+use crate::launcher;
 use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};
 use crate::search::SearchContext;
 use crate::launcher::clock;
@@ -40,7 +41,7 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_arc: Arc
         .propagation_phase(PropagationPhase::Capture).build();
     let im_context = SearchEntryIMContext::new();
     let im_simple = gtk::IMContextSimple::new(); 
-    ec.set_im_context(Some(&im_context));
+    // ec.set_im_context(Some(&im_context));
 
     use crate::{xdg_desktop_entry, SearchEntryBuffer};
     let xdg_desktop_entries = xdg_desktop_entry::get_xdg_desktop_entries();
@@ -48,10 +49,12 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_arc: Arc
     let desktop_entries = Rc::new(xdg_desktop_entries.0);
     let custom_launchers = Rc::new(xdg_desktop_entries.1);
     launcher.user_desktop_files = Some(desktop_entries.clone());
+    launcher.search_context.user_desktop_files = desktop_entries.clone();
     launcher.custom_launchers = Some(custom_launchers);
-    let search_entry_buffer = SearchEntryBuffer::new(launcher_arc_search_entry);
-    launcher.input_buffer = Some(Rc::new(search_entry_buffer));
-    let buffer = launcher.input_buffer.clone().unwrap();
+    let search_entry_buffer = SearchEntryBuffer::new();
+    let buffer_refcell = RefCell::new(search_entry_buffer);
+    launcher.input_buffer = Some(buffer_refcell.clone());
+    let buffer = buffer_refcell.borrow();
 
 
     drop(launcher); // gtk entry builder.buffer() tries to grab mutex so drop and relock
@@ -106,7 +109,13 @@ fn search_result_box(launcher_arc: Arc<Mutex<Launcher>>) -> gtk::Box {
 
         gesture_click.connect_pressed(move |_, _, _, _| {
             let mut launcher = launcher_arc_gc.lock().unwrap();
-            launcher.handle_result_click(i)
+            if launcher.search_result_frames[i].has_focus() {
+                launcher.launch_selected_application();
+                drop(launcher);
+                launcher::hide_window(launcher_arc_gc.clone());
+            } else {
+                launcher.search_result_frames[i].grab_focus();
+            }
         });
 
         let launcher_arc_ecm = launcher_arc.clone();

@@ -4,11 +4,10 @@ use crate::utils;
 use crate::launcher;
 use crate::launcher::{RESULT_ENTRY_COUNT, Launcher};
 
-fn get_search_score_for(entry: &XdgDesktopEntry, mut query_string: String) -> usize {
+fn get_search_score_for(entry: &XdgDesktopEntry, query_string: &str) -> usize {
 	let mut app_name = entry.display_name.clone();
 	app_name.make_ascii_lowercase();
-	query_string.make_ascii_lowercase();
-	match app_name.find(&query_string) {
+	match app_name.find(query_string) {
 		Some(idx) => std::usize::MAX - idx,
 		None => 0
 	}
@@ -20,10 +19,11 @@ struct SearchCandidate {
 }
 
 
-fn fetch_search_results(context: &SearchContext) -> SearchResult {
+fn fetch_search_results(context: &SearchContext, mut query_string: String) -> SearchResult {
 	let mut results: Vec<SearchCandidate> = Vec::with_capacity(context.user_desktop_files.len());
+	query_string.make_ascii_lowercase();
 	for (idx, entry) in  context.user_desktop_files.iter().enumerate() {
-		let score = get_search_score_for(entry, context.buf.clone());
+		let score = get_search_score_for(entry, &query_string);
 		if score > 0 {
 			results.push(SearchCandidate {
 				score,
@@ -42,6 +42,7 @@ fn fetch_search_results(context: &SearchContext) -> SearchResult {
 pub fn display_search_results(launcher: &mut Launcher, results: SearchResult) {
 	launcher.clear_search_results();
 	let mut counter = 0;
+	println!("search results {:?}", &results);
 	for (idx, desktop_idx) in results.iter().enumerate() {
 		if counter >= RESULT_ENTRY_COUNT {
 			break;
@@ -51,37 +52,24 @@ pub fn display_search_results(launcher: &mut Launcher, results: SearchResult) {
 	}
 }
 
-pub fn text_inserted(launcher: &mut Launcher, position: usize, chars: &str) {
-	let buf = &mut (launcher.search_context.buf);
-	// buffer is not garuanteed to be full of utf8 characters, so we can't just
-	// insert the char at the given position 
-    buf.insert_str(utils::char_position(buf, position), chars);
-    let search_results = fetch_search_results(&launcher.search_context);
-    launcher.search_context.result_cache = search_results.clone();
-    display_search_results(launcher, search_results)
+pub fn text_inserted(search_context: &mut SearchContext, buffer: String) -> SearchResult {
+    let search_results = fetch_search_results(&search_context, buffer);
+    search_context.result_cache = search_results.clone();
+    search_results
 }
 
-pub fn text_deleted(launcher: &mut Launcher, position: usize, n_chars: Option<u32>) {
+pub fn text_deleted(search_context: &mut SearchContext, buffer: String) -> SearchResult  {
 	// position is one less than the number of chars after which the cursor is placed
 	// n_chars is Some(1) when 
-	let position_idx = utils::char_position(&launcher.search_context.buf, position);
 
-	if let Some(n) = n_chars {
-		let end_idx = utils::char_position(&launcher.search_context.buf[position_idx..], n as usize);
-		println!("Draining {} {position_idx}..{end_idx} {n}", &launcher.search_context.buf);
-		&launcher.search_context.buf.drain(position_idx..position_idx+end_idx);
-	} else {
-		&launcher.search_context.buf.drain(position_idx..);
-	}
-
-	
+	/*
 	if let launcher::State::Hidden = launcher.state {	
 		return
-	}
+	}*/
 	
-	let search_results = fetch_search_results(&launcher.search_context);
-	launcher.search_context.result_cache = search_results.clone();
-	display_search_results(launcher, search_results);
+	let search_results = fetch_search_results(&search_context, buffer);
+	search_context.result_cache = search_results.clone();
+	search_results
 }
 
 pub fn get_xdg_index_from_last_search_result_idx(context: &SearchContext, idx: usize) -> Option<usize> {

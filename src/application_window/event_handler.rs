@@ -1,6 +1,8 @@
 use crate::launcher::{Launcher, clock};
 use crate::{Arc, Mutex};
 use crate::application_window::event_handler;
+use crate::launcher;
+use crate::search;
 use gtk::prelude::EditableExt;
 use gtk::PropagationPhase;
 use gtk::prelude::WidgetExt;
@@ -15,85 +17,131 @@ pub fn screenshot_click_handler(_gc: &gtk::GestureClick, _: i32, _: f64, _: f64)
     }*/
 }
 
-    pub fn attach_screenshot_handlers(launcher: Arc<Mutex<Launcher>>) {
-        let ecm = gtk::EventControllerMotion::builder()
-            .propagation_phase(gtk::PropagationPhase::Capture).build();
+pub fn attach_screenshot_handlers(launcher: Arc<Mutex<Launcher>>) {
+    let ecm = gtk::EventControllerMotion::builder()
+        .propagation_phase(gtk::PropagationPhase::Capture).build();
 
-        let enter_launcher = launcher.clone();
-        let screenshot_enter_handler = move |_: &gtk::EventControllerMotion,  _: f64, _: f64| {
-            let mut enter_launcher = enter_launcher.lock().unwrap();
-            enter_launcher.select_screenshot_button();
-        };
+    let enter_launcher = launcher.clone();
+    let screenshot_enter_handler = move |_: &gtk::EventControllerMotion,  _: f64, _: f64| {
+        println!("Screenshot enter handler");
+        let mut enter_launcher = enter_launcher.lock().unwrap();
+        enter_launcher.select_screenshot_button();
+    };
 
-        let screenshot_leave_handler = move |_: &gtk::EventControllerMotion| {
-            let mut launcher = launcher.lock().unwrap();
-            launcher.focus_text_input();
-        };
+    let screenshot_leave_handler = move |_: &gtk::EventControllerMotion| {
+        launcher::focus_text_input(launcher.clone());
+    };
 
-        ecm.connect_enter(screenshot_enter_handler);
-        ecm.connect_leave(screenshot_leave_handler);
-    }
+    ecm.connect_enter(screenshot_enter_handler);
+    ecm.connect_leave(screenshot_leave_handler);
+}
 
 pub fn attach_window_key_handler(
         application_window: &mut gtk::ApplicationWindow, 
-        launcher: Arc<Mutex<Launcher>>) {
+        launcher_cell: Arc<Mutex<Launcher>>) {
 
-    let eck = gtk::EventControllerKey::builder()
+    let launcher_cell_capture = launcher_cell.clone();
+    let launcher_cell_target = launcher_cell;
+
+    let eck_target = gtk::EventControllerKey::builder()
+        .propagation_phase(PropagationPhase::Bubble).build();
+    let eck_capture = gtk::EventControllerKey::builder()
         .propagation_phase(PropagationPhase::Capture).build();
 
-    let key_handler = move |
-        _: &gtk::EventControllerKey,
-        key: gdk::Key,
-        _: u32,
-        _: gdk::ModifierType| -> gtk::glib::Propagation {
+    let key_handler_capture = move |
+            _: &gtk::EventControllerKey, key: gdk::Key, _: u32, _: gdk::ModifierType| -> gtk::glib::Propagation {
+            match key {
+                gdk::Key::Escape => {
+                    println!("Hiding window");
+                    launcher::hide_window(launcher_cell_capture.clone());
+                    return gtk::glib::Propagation::Stop
+                },
+                gdk::Key::Return => {
+                    println!("RETURN PRESSED");
+                    launcher::handle_enter_key(launcher_cell_capture.clone());
+                    return gtk::glib::Propagation::Proceed
+                },
+                gdk::Key::Down => {
+                    launcher::scroll_search_results_down(launcher_cell_capture.clone());
+                    return gtk::glib::Propagation::Stop
+                },
+                gdk::Key::BackSpace => {
+                    launcher::focus_text_input(launcher_cell_capture.clone());
+                    let mut launcher = launcher_cell_capture.lock().unwrap();
+                    let input = launcher.text_input.clone().unwrap();
+                    let buffer = launcher.input_buffer.clone().unwrap();
+                    let buffer = buffer.borrow();
+                    let pos = (*buffer).length() as i32;
+                    input.delete_text(pos -1, pos);
+                    input.select_region(pos - 1, pos - 1);
+                    let buffer = launcher.input_buffer.as_ref().unwrap();
+                    let buffer = buffer.borrow().clone();
+                    let buffer = buffer.text();
+                    let buffer = buffer.borrow().clone();
+                    let search_context = &mut launcher.search_context;
+                    let search_results = search::text_deleted(search_context, buffer); 
+                    search::display_search_results(&mut launcher, search_results);
+                    return gtk::glib::Propagation::Stop
+                },
+                _ => ()
+            };
 
-        println!("key {}", key);
-        let mut launcher = launcher.lock().unwrap();
-        match key {
-            gdk::Key::Escape => launcher.hide_window(),
-            gdk::Key::Return => launcher.handle_enter_key(),
-            gdk::Key::Down => launcher.scroll_search_results_down(),
-            _ => ()
+            match key.to_unicode() {
+                Some('\r')|None => gtk::glib::Propagation::Proceed,
+                Some(character) => {
+                    println!("Processing character |{}|", character as u8);
+                    // launcher::focus_text_input(launcher_cell.clone());
+                    let mut launcher = launcher_cell_capture.lock().unwrap();
+                    let buffer = launcher.input_buffer.as_ref().unwrap();
+                    let buffer = buffer.borrow().clone();
+                    let buffer = buffer.text();
+                    let buffer = buffer.borrow().clone();
+                    let input = launcher.text_input.clone().unwrap();
+
+                    // doesn't actually modify buffer used in widget
+                    let mut buffer = buffer.to_string().clone();
+                    buffer.push(character);
+        
+                    let search_context = &mut launcher.search_context;
+                    println!("search::text_inserted(search_context, \"{buffer}\")");
+                    let search_results = search::text_inserted(search_context, buffer); 
+                    search::display_search_results(&mut launcher, search_results);
+                    gtk::glib::Propagation::Proceed
+                }
+            }
         };
 
-        match launcher.selected_search_idx {
-            Some(_) => (),
-            None => return gtk::glib::Propagation::Proceed,
-        };
-
-        match key {
-            gdk::Key::BackSpace => {
-                launcher.focus_text_input();
-                let input = launcher.text_input.clone().unwrap();
-                let pos = launcher.search_context.buf.len() as i32;
-                input.delete_text(pos -1, pos);
-                input.select_region(pos - 1, pos - 1);
-                return gtk::glib::Propagation::Proceed;
-            },
-            _ => ()
-        };
-
+    let key_handler_target = move |
+            _: &gtk::EventControllerKey, key: gdk::Key, _: u32, _: gdk::ModifierType| -> gtk::glib::Propagation {
+        /*
+        println!("TARGET");
         let key_unicode = key.to_unicode();
         match key_unicode {
             Some('\r') => (),
             Some(character) => {
-                launcher.focus_text_input();
-                let input = launcher.text_input.clone().unwrap();
-                let mut pos = launcher.search_context.buf.len() as i32;
-                input.insert_text(
-                   &character.to_string(), 
-                   &mut pos);
-                input.select_region(pos, pos);
+                println!("Processing character {character}");
+                // launcher::focus_text_input(launcher_cell.clone());
+                let mut launcher = launcher_cell_target.lock().unwrap();
+                let buffer = launcher.input_buffer.as_ref().unwrap();
+                let buffer = buffer.borrow().clone();
+                let buffer = buffer.text().clone();
+                let buffer = buffer.borrow().clone();
+                let buffer = buffer.to_string().clone();
+                let search_context = &mut launcher.search_context;
+                println!("search::text_inserted()");
+                search::text_inserted(search_context, buffer); 
+                return gtk::glib::Propagation::Proceed;
             },
             None => ()
         };
-
-
+        */
         gtk::glib::Propagation::Proceed
     };
 
-    eck.connect_key_pressed(key_handler);
-    application_window.add_controller(eck);
+    eck_target.connect_key_pressed(key_handler_target);
+    //application_window.add_controller(eck_target);
+    eck_capture.connect_key_pressed(key_handler_capture);
+    application_window.add_controller(eck_capture);
 }
 
 pub fn setup_on_clock_tick(launcher: Arc<Mutex<Launcher>>) {

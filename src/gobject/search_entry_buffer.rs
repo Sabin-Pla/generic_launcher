@@ -4,12 +4,13 @@ use gtk::subclass::prelude::*;
 use gtk::subclass::prelude::DerivedObjectProperties;
 use crate::{Arc, Mutex, Rc, RefCell};
 use crate::search;
+use crate::utils;
 use crate::launcher::Launcher;
 
 mod inner {
     use super::*;
 
-    pub struct SearchEntryBuffer(pub RefCell<Option<Arc<Mutex<Launcher>>>>);
+    pub struct SearchEntryBuffer(pub Rc<RefCell<String>>);
 
     #[gtk::glib::object_subclass]
     impl ObjectSubclass for SearchEntryBuffer {
@@ -18,7 +19,7 @@ mod inner {
         type ParentType = gtk::EntryBuffer;
 
         fn new() -> Self {
-            Self(RefCell::new(None))
+            Self(Rc::new(RefCell::new("".to_string())))
         }
     }
 
@@ -30,33 +31,37 @@ mod inner {
             if chars.len() == 1 && chars.as_bytes()[0] == 13 {
                 return; // carrage return ascii, don't add control chars to buffer.
             }
-            let mut launcher = self.0.borrow_mut();
-            let mut launcher = launcher.as_mut().unwrap().lock().unwrap();
-            search::text_inserted(&mut launcher, position, chars);
+            let mut buf = self.0.borrow_mut();
+            // buffer is not garuanteed to be full of utf8 characters, so we can't just
+            // insert the char at the given position 
+            let position = utils::char_position(&buf, position);
+            buf.insert_str(position, chars);
     	}
 
         fn text(&self) -> glib::GString {
             println!("SearchEntryBuffer text()");
-            let mut launcher = self.0.borrow_mut();
-            let mut launcher = launcher.as_mut().unwrap().lock().unwrap();
-            let context = &launcher.search_context;
-            glib::GString::from_string_unchecked(context.buf.to_string())
+            glib::GString::from_string_unchecked(self.0.borrow().clone())
         }
 
         fn deleted_text(&self, position: u32, n_chars: Option<u32>) { 
             println!("SearchEntryBuffer deleted_text()");
             let position = position as usize;
-            let mut launcher = self.0.borrow_mut();
-            let mut launcher = launcher.as_mut().unwrap().lock().unwrap();
-            search::text_deleted(&mut launcher, position, n_chars);
+            let mut buf = self.0.borrow_mut();
+            let position_idx = utils::char_position(&buf, position);
+
+            if let Some(n) = n_chars {
+                let end_idx = utils::char_position(&buf[position_idx..], n as usize);
+                println!("Draining {} {position_idx}..{end_idx} {n}", &buf);
+                &buf.drain(position_idx..position_idx+end_idx);
+            } else {
+                &buf.drain(position_idx..);
+            }
             println!("deleted text: {position}");
         }
 
         fn length(&self) -> u32 {
             println!("SearchEntryBuffer length()");
-            let mut launcher = self.0.borrow_mut();
-            let mut launcher = launcher.as_mut().unwrap().lock().unwrap();
-            launcher.search_context.buf.chars().count().try_into().unwrap()
+            self.0.borrow_mut().chars().count().try_into().unwrap()
         } 
     }
 
@@ -68,11 +73,17 @@ glib::wrapper! {
     @extends gtk::EntryBuffer; 
 }
 
+use std::cell::Ref;
 impl SearchEntryBuffer {
-    pub fn new(launcher_arc: Arc<Mutex<Launcher>>) -> Self {
-        use std::borrow::Borrow;
-        let mut obj = Object::new::<Self>();
-        *inner::SearchEntryBuffer::from_obj(&obj).0.borrow_mut() = Some(launcher_arc);
-        obj
+    pub fn new() -> Self {
+        Object::new::<Self>()
+    }
+
+    pub fn length(&self) -> u32 {
+        inner::SearchEntryBuffer::from_obj(self).length()
+    }
+
+    pub fn text(&self) -> Rc<RefCell<String>> {
+        inner::SearchEntryBuffer::from_obj(self).0.clone()
     }
 }

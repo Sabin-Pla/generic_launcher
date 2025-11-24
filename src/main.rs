@@ -39,58 +39,59 @@ unsafe fn activate(_application: &gtk::Application, launcher_arc: Arc<Mutex<Laun
 	println!("Activating...");
     let launcher_arc_clock = launcher_arc.clone();
     let mut launcher = launcher_arc.lock().unwrap();
-	if launcher.done_init {
-		WINDOW.with( |application_window| {
-			let mut application_window = (*application_window).borrow_mut();
-  			let application_window = application_window.as_mut().unwrap();
-  			match launcher.state {
-  				State::NotStarted => panic!("cannot activate; not started"),
-  				State::Visible => {
-  					println!("Hiding");
-  					application_window.set_visible(false);
-  					launcher.state = State::Hidden;
-  				},
-  				State::Hidden => { 
-                    // todo!("get state from user config");
-  					application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
-                    let clock = unsafe {
-                        launcher.clock.clone().expect("Clock not initialized")
-                    };
-                    let clock = clock.borrow();
-                    let display = clock.display();
 
-                    drop(launcher);
-                    application_window.set_visible(true);
+	WINDOW.with( |application_window| {
+		let mut application_window = (*application_window).borrow_mut();
+		let application_window = application_window.as_mut().unwrap();
+		match launcher.state {
+			State::NotStarted => panic!("cannot activate; not started"),
+			State::Visible => {
+    				println!("Hiding");
+                drop(launcher);
+    				application_window.set_visible(false);
+                println!("hide.");
+                let mut launcher = launcher_arc.lock().unwrap();
+    				launcher.state = State::Hidden;
+			},
+			State::Hidden => { 
+                // todo!("get state from user config");
+    				application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
+                let clock = unsafe {
+                    launcher.clock.clone().expect("Clock not initialized")
+                };
+                let clock = clock.borrow();
+                let display = clock.display();
 
-                    let surface = application_window.surface().unwrap();
-                    let display = display.monitor_at_surface(&surface);
-                    let rect =  display.unwrap().geometry();
-                    let (width, height) = (rect.width(), rect.height());
-                    println!("monitor: {width} {height}");
+                drop(launcher);
+                application_window.set_visible(true);
 
-                    println!("---");
-                    let mut launcher = launcher_arc.lock().unwrap();
-                    println!("---");
-                    launcher.current_monitor = Some((width, height));
-                    drop(launcher);
-                    launcher::clock::set_clock_size(application_window, launcher_arc_clock);
-                    let mut launcher = launcher_arc.lock().unwrap();
-                    println!("clear_search_results()");
-                    launcher.clear_search_results();
-                    println!("clear_search_buffer()");
-                    launcher.clear_search_buffer();
-                    println!("focus_text_input()");
-                    launcher.focus_text_input();
-  					launcher.state = State::Visible;
-  				}
-  			}
-		});
-	} else {
-        println!("not yet initialized...");
-    }
+                let surface = application_window.surface().unwrap();
+                let display = display.monitor_at_surface(&surface);
+                let rect =  display.unwrap().geometry();
+                let (width, height) = (rect.width(), rect.height());
+                println!("monitor: {width} {height}");
 
-    let mut launcher = launcher_arc.lock().unwrap();
-	launcher.done_init = true;
+                println!("---");
+                let mut launcher = launcher_arc.lock().unwrap();
+                println!("---");
+                launcher.current_monitor = Some((width, height));
+                drop(launcher);
+                println!("set_clock_size()");
+                launcher::clock::set_clock_size(application_window, launcher_arc_clock);
+                let mut launcher = launcher_arc.lock().unwrap();
+                println!("clear_search_results()");
+                launcher.clear_search_results();
+                println!("clear_search_buffer()");
+                let text_input = launcher.text_input.clone().unwrap();
+                drop(launcher);
+                text_input.set_text("");
+                println!("focus_text_input()");
+                text_input.grab_focus();
+                let mut launcher = launcher_arc.lock().unwrap();
+    			launcher.state = State::Visible;
+    		}
+		}
+	});
 }
 
 unsafe fn startup(application: &gtk::Application, launcher_arc: Arc<Mutex<Launcher>>) {
@@ -116,7 +117,6 @@ unsafe fn startup(application: &gtk::Application, launcher_arc: Arc<Mutex<Launch
     let mut launcher = launcher_arc.lock().unwrap();
     launcher.reload_css(); 
     launcher.state = launcher::State::Hidden;
-    launcher.done_init = true;
     WINDOW.replace(Some(application_window));
 }
 
@@ -131,10 +131,10 @@ fn main()  -> gtk::glib::ExitCode {
         application.connect_startup(move |app| {
             startup(app, startup_launcher.clone());
             println!("Done initial startup");
-            activate(app, startup_launcher.clone())
+            // activate(app, startup_launcher.clone())
         });
         application.connect_activate(move |app| {
-            activate(app, launcher.clone()) 
+            activate(app, launcher.clone())
         });
         application.run()
     }

@@ -6,7 +6,6 @@ use crate::search::SearchResult;
 pub struct SearchContext {
 	pub user_desktop_files: Rc<Vec<XdgDesktopEntry>>,
 	pub(in super) result_cache: SearchResult,
-	pub buf: String
 }
 
 
