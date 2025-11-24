@@ -125,13 +125,14 @@ fn search_result_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
         });
 
         let launcher_cell_ecm = launcher_cell.clone();
-    
+        /*
         ecm.connect_enter(move |_, _, _| { 
+            println!("connect_enter");
             match launcher_cell_ecm.try_borrow_mut() {
                 Ok(mut launcher) => launcher.handle_hovered(i),
                 Err(..) => println!("connect_enter cannot grab launcher"),
             }
-        });
+        });*/
         result_box.add_controller(gesture_click);
         result_box.add_controller(ecm);
 

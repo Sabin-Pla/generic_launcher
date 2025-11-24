@@ -107,7 +107,7 @@ impl Launcher {
     pub fn handle_hovered(&mut self, hovered_idx: usize) {
         self.hovered_idx = hovered_idx;
         self.search_result_frames[hovered_idx].grab_focus();
-        self.selected_search_idx = Some(hovered_idx as isize);
+        // self.selected_search_idx = Some(hovered_idx as isize);
     }
 
     /*

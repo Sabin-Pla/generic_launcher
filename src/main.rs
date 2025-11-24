@@ -55,7 +55,7 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
 			},
 			State::Hidden => { 
                 // todo!("get state from user config");
-    				application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
+    			//	application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
                 let clock = unsafe {
                     launcher.clock.clone().expect("Clock not initialized")
                 };
