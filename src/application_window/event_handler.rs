@@ -82,7 +82,7 @@ pub fn attach_window_key_handler(
                 let search_context = &mut launcher.search_context;
                 let search_results = search::text_deleted(search_context, buffer); 
                 search::display_search_results(&mut launcher, search_results);
-                return gtk::glib::Propagation::Stop
+                return gtk::glib::Propagation::Proceed
             },
             _ => ()
         };

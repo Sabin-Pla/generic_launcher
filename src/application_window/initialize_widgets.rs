@@ -76,14 +76,16 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_cell: Rc
 
     drop(launcher); // accessing buffer locks mutex...
     search_bar.set_placeholder_text(Some("Applications"));
-    let mut launcher = launcher_cell.borrow_mut();
 
     search_bar.connect_has_focus_notify(move |_f| {
-        let mut launcher = launcher_cell_focus.borrow_mut();
-        launcher.selected_search_idx = None;
+        match launcher_cell_focus.try_borrow_mut() {
+            Ok(mut launcher) => launcher.selected_search_idx = None,
+            Err(..) => println!("failed to focus search bar"),
+        }
     });
-    
+        
     search_bar.set_has_frame(true);
+    let mut launcher = launcher_cell.borrow_mut();
     launcher.clear_search_results();
     search_bar.clone()
 }
@@ -108,21 +110,27 @@ fn search_result_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
         let launcher_cell_gc = launcher_cell.clone();
 
         gesture_click.connect_pressed(move |_, _, _, _| {
+            println!("------- connect_pressed");
             let mut launcher = launcher_cell_gc.borrow_mut();
+            println!("------- connect_pressed");
             if launcher.search_result_frames[i].has_focus() {
-                launcher.launch_selected_application();
+                println!("------- connect_pressed");
                 drop(launcher);
-                launcher::hide_window(launcher_cell_gc.clone());
+                launcher::handle_enter_key(launcher_cell_gc.clone());
             } else {
+                println!("------- grab_focus");
                 launcher.search_result_frames[i].grab_focus();
+                println!("------- grab_focus");
             }
         });
 
         let launcher_cell_ecm = launcher_cell.clone();
     
         ecm.connect_enter(move |_, _, _| { 
-            let mut launcher = launcher_cell_ecm.borrow_mut();
-            launcher.handle_hovered(i) 
+            match launcher_cell_ecm.try_borrow_mut() {
+                Ok(mut launcher) => launcher.handle_hovered(i),
+                Err(..) => println!("connect_enter cannot grab launcher"),
+            }
         });
         result_box.add_controller(gesture_click);
         result_box.add_controller(ecm);
@@ -130,9 +138,13 @@ fn search_result_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
         let launcher_cell_focus = launcher_cell.clone();
 
         result_box.connect_has_focus_notify(move |f| {
-            let mut launcher = launcher_cell_focus.borrow_mut();
-            launcher.selected_search_idx = Some(
-                f.get().idx_in_container.try_into().unwrap());
+            println!("has_focus_notify");
+            match launcher_cell_focus.try_borrow_mut() {
+                Ok(mut launcher) => launcher.selected_search_idx = Some(
+                f.get().idx_in_container.try_into().unwrap()),
+                Err(..) => println!("has_focus_notify cannot grab launcher"),
+            }
+            println!("has_focus_notify-");
         });
       
         let context = result_box.style_context();

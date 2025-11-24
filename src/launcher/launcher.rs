@@ -61,6 +61,7 @@ impl Launcher {
     }
 
     pub fn launch_selected_application(&mut self) {
+        println!("launch_selected_application()");
         let idx = match self.selected_search_idx {
             Some(-1) => {
                 self.custom_launchers.clone().unwrap()[0].launch(None);
@@ -106,6 +107,7 @@ impl Launcher {
     pub fn handle_hovered(&mut self, hovered_idx: usize) {
         self.hovered_idx = hovered_idx;
         self.search_result_frames[hovered_idx].grab_focus();
+        self.selected_search_idx = Some(hovered_idx as isize);
     }
 
     /*
