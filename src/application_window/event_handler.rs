@@ -64,25 +64,40 @@ pub fn attach_window_key_handler(
             },
             gdk::Key::Down => {
                 launcher::scroll_search_results_down(launcher_cell_capture.clone());
-                return gtk::glib::Propagation::Stop
+                return gtk::glib::Propagation::Proceed
             },
             gdk::Key::BackSpace => {
-                launcher::focus_text_input(launcher_cell_capture.clone());
+
+                // if this is not here backspace deletes all characters
+                let launcher = launcher_cell_capture.borrow();
+                match launcher.selected_search_idx {
+                    Some(_) => {
+                         drop(launcher);
+                         launcher::focus_text_input(launcher_cell_capture.clone());
+                    },
+                    None => {
+                        drop(launcher);
+                    },
+                };
+                
                 let mut launcher = launcher_cell_capture.borrow_mut();
                 let input = launcher.text_input.clone().unwrap();
                 let buffer = launcher.input_buffer.clone().unwrap();
                 let buffer = buffer.borrow();
                 let pos = (*buffer).length() as i32;
+                println!("pos {pos}");
+
                 input.delete_text(pos -1, pos);
                 let buffer = launcher.input_buffer.as_ref().unwrap();
                 let buffer = buffer.borrow().clone();
                 let buffer = buffer.text();
                 let buffer = buffer.borrow().clone();
                 let search_context = &mut launcher.search_context;
+                println!("search::text_deleted(search_context, \"{}\")", &buffer);
                 let search_results = search::text_deleted(search_context, buffer); 
                 search::display_search_results(&mut launcher, search_results);
                 input.select_region(pos - 1, pos - 1);
-                return gtk::glib::Propagation::Stop
+                return gtk::glib::Propagation::Proceed
             },
             _ => ()
         };

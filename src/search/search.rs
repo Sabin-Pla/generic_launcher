@@ -42,7 +42,6 @@ fn fetch_search_results(context: &SearchContext, mut query_string: String) -> Se
 pub fn display_search_results(launcher: &mut Launcher, results: SearchResult) {
 	launcher.clear_search_results();
 	let mut counter = 0;
-	println!("search results {:?}", &results);
 	for (idx, desktop_idx) in results.iter().enumerate() {
 		if counter >= RESULT_ENTRY_COUNT {
 			break;
