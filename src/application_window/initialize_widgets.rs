@@ -66,7 +66,7 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_cell: Rc
 
     search_bar.set_halign(gtk::Align::Center);
     search_bar.add_controller(ec);
-    
+
     search_bar.connect_changed(move |buffer| {
         let buffer = buffer.text().to_string();
         println!("SEARCH BAR CHANGED {buffer}");
@@ -174,8 +174,6 @@ fn search_result_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
 }
 
 fn screenshot_button(launcher_cell: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::Image {
-    event_handler::attach_screenshot_handlers(launcher_cell.clone());
-    let launcher_cell_connect_focus = launcher_cell.clone();
     let mut launcher = launcher_cell.borrow_mut();
 
     // todo!("set the sizes dynamically");
@@ -184,23 +182,14 @@ fn screenshot_button(launcher_cell: Rc<RefCell<Launcher>>, icon_theme: &gtk::Ico
         32, 1, 
         gtk::TextDirection::None, 
         gtk::IconLookupFlags::PRELOAD);
-    let screenshot_icon = gtk::Image::from_paintable(Some(&screenshot_paintable));
+    let mut screenshot_icon = gtk::Image::from_paintable(Some(&screenshot_paintable));
+    event_handler::attach_screenshot_handlers(launcher_cell.clone(), &mut screenshot_icon);
     screenshot_icon.set_icon_size(gtk::IconSize::Large);
     screenshot_icon.set_focusable(true);
 
-    
-    screenshot_icon.connect_has_focus_notify(move |_| {
-        let mut launcher = launcher_cell_connect_focus.borrow_mut();
-        launcher.selected_search_idx = Some(-1);
-    });
-
-    // screenshot_icon.add_controller(ecm);
     let screenshot_style = screenshot_icon.style_context();
     screenshot_style.add_class("screenshot-button");
     launcher.screenshot_button = Some(Rc::new(screenshot_icon.clone()));
-    let gesture_click = gtk::GestureClick::new();
-    gesture_click.connect_pressed(event_handler::screenshot_click_handler);
-    screenshot_icon.add_controller(gesture_click);
     screenshot_icon
 }
 

@@ -98,12 +98,6 @@ impl Launcher {
 
     }
 
-    pub fn select_screenshot_button(&mut self) {
-        println!("Grabbing screenshot button focus");
-        let button = self.screenshot_button.clone().unwrap();
-        button.grab_focus();
-    }
-
     pub fn handle_hovered(&mut self, hovered_idx: usize) {
         self.hovered_idx = hovered_idx;
         self.search_result_frames[hovered_idx].grab_focus();

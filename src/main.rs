@@ -36,7 +36,6 @@ thread_local! {
 
 unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<Launcher>>) {
     // this function is called whenever the application is 'activated' (reopened after being dismissed)
-	println!("Activating...");
     let launcher_cell_clock = launcher_cell.clone();
     let mut launcher = launcher_cell.borrow_mut();
 
@@ -46,10 +45,9 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
 		match launcher.state {
 			State::NotStarted => panic!("cannot activate; not started"),
 			State::Visible => {
-    			println!("Hiding");
+    			println!("Hiding launcher");
                 drop(launcher);
     			application_window.set_visible(false);
-                println!("hide.");
                 let mut launcher = launcher_cell.borrow_mut();
     			launcher.state = State::Hidden;
 			},
@@ -70,22 +68,15 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
                 let rect =  display.unwrap().geometry();
                 let (width, height) = (rect.width(), rect.height());
                 println!("monitor: {width} {height}");
-
-                println!("---");
                 let mut launcher = launcher_cell.borrow_mut();
-                println!("---");
                 launcher.current_monitor = Some((width, height));
                 drop(launcher);
-                println!("set_clock_size()");
                 launcher::clock::set_clock_size(application_window, launcher_cell_clock);
                 let mut launcher = launcher_cell.borrow_mut();
-                println!("clear_search_results()");
                 launcher.clear_search_results();
-                println!("clear_search_buffer()");
                 let text_input = launcher.text_input.clone().unwrap();
                 drop(launcher);
                 text_input.set_text("");
-                println!("focus_text_input()");
                 text_input.grab_focus();
                 let mut launcher = launcher_cell.borrow_mut();
     			launcher.state = State::Visible;

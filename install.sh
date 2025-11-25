@@ -15,5 +15,12 @@ echo "installing to $GENERIC_LAUNCHER_INSTALL_DIR"
 project_dir=$(dirname "$0")
 cd "$project_dir"
 cargo build
-install -v ./target/debug/generic_launcher "$GENERIC_LAUNCHER_INSTALL_DIR"
+set -x
+if ! install -v ./target/debug/generic_launcher "$GENERIC_LAUNCHER_INSTALL_DIR"; then 
+	echo $?
+fi
+if ! diff -r -q "$project_dir" "$GENERIC_LAUNCHER_INSTALL_DIR"; then
+	cp -r "$project_dir/assets" "$GENERIC_LAUNCHER_INSTALL_DIR"
+	cp "$project_dir/launcher.css" "$GENERIC_LAUNCHER_INSTALL_DIR"
+fi
 "$GENERIC_LAUNCHER_INSTALL_DIR/generic_launcher"
