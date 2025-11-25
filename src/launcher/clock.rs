@@ -32,9 +32,7 @@ fn show_clock(launcher: Rc<RefCell<Launcher>>) {
     println!("Showing clock and setting width to {padded}");
     println!("{:?}", &clock_sizes);
     clock.set_opacity(1.0);
-    println!("?????");
     clock.set_size_request(padded, 0);
-    println!("?????");
 }
 
 
@@ -43,7 +41,6 @@ pub fn set_clock_size(
         launcher_cell: Rc<RefCell<Launcher>>) {
     let launcher_cell_clock = launcher_cell.clone();
     let mut launcher = launcher_cell.borrow_mut();
-    println!("qqq");
 
     let clock = launcher.clock.clone().expect("cannot set uninitialized clock");
     let clock = clock.borrow();
@@ -67,15 +64,10 @@ pub fn set_clock_size(
             // hide the clock while it loads.
             clock.set_opacity(0.0);
             let show_clock_wrapper = || {
-                let v = show_clock(launcher_cell_clock);
-                println!("exiting wrapper");
-                v
+                show_clock(launcher_cell_clock)
             };
-            println!("?????-");
             glib::timeout_add_local_once(Duration::from_millis(20), show_clock_wrapper);
-            println!("?????-");
         } 
-        println!("calculate_clock_padding()");
         calculate_clock_padding(&clock)
     };
     let provider = gtk::CssProvider::new();
@@ -104,7 +96,6 @@ pub fn set_clock_size(
             p
         }
     };
-    println!("v-- set_size_request()");
     let mut launcher = launcher_cell.borrow_mut();
     clock.set_size_request(clock_width, 40);
 }

@@ -52,8 +52,6 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
     			launcher.state = State::Hidden;
 			},
 			State::Hidden => { 
-                // todo!("get state from user config");
-    			//	application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
                 let clock = unsafe {
                     launcher.clock.clone().expect("Clock not initialized")
                 };
@@ -74,10 +72,10 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
                 launcher::clock::set_clock_size(application_window, launcher_cell_clock);
                 let mut launcher = launcher_cell.borrow_mut();
                 launcher.clear_search_results();
-                let text_input = launcher.text_input.clone().unwrap();
+                let search_bar = launcher.search_bar.clone();
                 drop(launcher);
-                text_input.set_text("");
-                text_input.grab_focus();
+                search_bar.set_text("");
+                search_bar.grab_focus();
                 let mut launcher = launcher_cell.borrow_mut();
     			launcher.state = State::Visible;
     		}
@@ -92,6 +90,10 @@ unsafe fn startup(application: &gtk::Application, launcher_cell: Rc<RefCell<Laun
    
     let mut application_window = application_window::initialize(application);
     application_window::populate(&mut application_window, &application_settings, launcher_cell.clone());
+
+    // todo!("get state from user config");
+    application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
+
     let mut launcher = launcher_cell.borrow_mut();
     let css_file = Arc::new(application_settings.css_file);
     let provider = gtk::CssProvider::new();
@@ -113,16 +115,15 @@ unsafe fn startup(application: &gtk::Application, launcher_cell: Rc<RefCell<Laun
 
 fn main()  -> gtk::glib::ExitCode {
     unsafe {
+        gtk::init();
         let application = gtk::Application::new(
             Some("www.generic_launcher_example"), Default::default());
         gtk::prelude::GtkApplicationExt::set_accels_for_action(
             &application, "win.close", &["<Ctrl>C"]);
         let launcher = Rc::new(RefCell::new(Launcher::uninitialized()));
-        let startup_launcher = launcher.clone();
+        let startup_launcher_cell = launcher.clone();
         application.connect_startup(move |app| {
-            startup(app, startup_launcher.clone());
-            println!("Done initial startup");
-            // activate(app, startup_launcher.clone())
+            startup(app, startup_launcher_cell.clone());
         });
         application.connect_activate(move |app| {
             activate(app, launcher.clone())

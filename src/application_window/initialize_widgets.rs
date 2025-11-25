@@ -9,6 +9,7 @@ use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};
 use crate::search::SearchContext;
 use crate::launcher::clock;
 use crate::gobject::{SearchResultBox, SearchResultBoxWidget, SearchEntryIMContext};
+use crate::{xdg_desktop_entry, SearchEntryBuffer};
 
 use super::event_handler;
 
@@ -32,18 +33,9 @@ fn topbar(launcher: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::
 }
 
 fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
-    let launcher_cell_focus = launcher_cell.clone();
     let launcher_cell_search_entry = launcher_cell.clone();
     let mut launcher = launcher_cell.borrow_mut();
 
-	let ec = gtk::EventControllerKey::builder()
-        .name("im_controller")
-        .propagation_phase(PropagationPhase::Capture).build();
-    let im_context = SearchEntryIMContext::new();
-    let im_simple = gtk::IMContextSimple::new(); 
-    // ec.set_im_context(Some(&im_context));
-
-    use crate::{xdg_desktop_entry, SearchEntryBuffer};
     let xdg_desktop_entries = xdg_desktop_entry::get_xdg_desktop_entries();
     
     let desktop_entries = Rc::new(xdg_desktop_entries.0);
@@ -56,46 +48,26 @@ fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_cell: Rc
     launcher.input_buffer = Some(buffer_refcell.clone());
     let buffer = buffer_refcell.borrow();
 
-
     drop(launcher); // gtk entry builder.buffer() tries to grab mutex so drop and relock
 	let mut search_bar = gtk::Entry::builder().xalign(0.5)
         .buffer(&*buffer).build();
 
-    let launcher_cell_buffer_changed = launcher_cell.clone();
+    event_handler::attach_search_bar_handlers(launcher_cell.clone(), &mut search_bar);
+
     let mut launcher = launcher_cell.borrow_mut();
 
     search_bar.set_halign(gtk::Align::Center);
-    search_bar.add_controller(ec);
 
-    search_bar.connect_changed(move |buffer| {
-        let buffer = buffer.text().to_string();
-        println!("SEARCH BAR CHANGED {buffer}");
-        let launcher_cell = launcher_cell_buffer_changed.clone();
-        let mut launcher = launcher_cell.borrow_mut();
-        use crate::search;
-        let search_results = search::refetch_results(&mut launcher.search_context, buffer);
-        search::display_search_results(&mut launcher, search_results);
-    });
-    im_context.set_use_preedit(true);
     let context = search_bar.style_context();
     context.add_class("input-field");
 
     search_bar.set_focusable(true);
     search_bar.grab_focus_without_selecting();
-    application_window.set_keyboard_mode(KeyboardMode::Exclusive);
-    launcher.text_input = Some(Rc::new(search_bar.clone()));
+    launcher.search_bar = Rc::new(search_bar.clone());
     let search_bar = &mut search_bar;
 
     drop(launcher); // accessing buffer locks mutex...
     search_bar.set_placeholder_text(Some("Applications"));
-
-    search_bar.connect_has_focus_notify(move |_f| {
-        match launcher_cell_focus.try_borrow_mut() {
-            Ok(mut launcher) => launcher.selected_search_idx = None,
-            Err(..) => println!("failed to focus search bar"),
-        }
-    });
-        
     search_bar.set_has_frame(true);
     let mut launcher = launcher_cell.borrow_mut();
     launcher.clear_search_results();
@@ -110,58 +82,13 @@ fn search_result_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
 
     for i in 0..RESULT_ENTRY_COUNT {
         let result_box = SearchResultBoxWidget::from(i);
-        let result_box = SearchResultBox::new(result_box);
+        let mut result_box = SearchResultBox::new(result_box);
         result_box.set_focusable(true);
         result_box.set_focus_on_click(true);
         gtk::prelude::ButtonExt::set_label(&result_box, &"");
-        let gesture_click = gtk::GestureClick::builder()
-            .propagation_phase(PropagationPhase::Capture).build();
-        let ecm = gtk::EventControllerMotion::builder()
-            .propagation_phase(PropagationPhase::Capture).build();
-
-        let launcher_cell_gc = launcher_cell.clone();
-
-        gesture_click.connect_pressed(move |_, _, _, _| {
-            println!("------- connect_pressed");
-            let mut launcher = launcher_cell_gc.borrow_mut();
-            println!("------- connect_pressed");
-            if launcher.search_result_frames[i].has_focus() {
-                println!("------- connect_pressed");
-                drop(launcher);
-                launcher::handle_enter_key(launcher_cell_gc.clone());
-            } else {
-                println!("------- grab_focus");
-                launcher.search_result_frames[i].grab_focus();
-                println!("------- grab_focus");
-            }
-        });
-
-        let launcher_cell_ecm = launcher_cell.clone();
-        /*
-        ecm.connect_enter(move |_, _, _| { 
-            println!("connect_enter");
-            match launcher_cell_ecm.try_borrow_mut() {
-                Ok(mut launcher) => launcher.handle_hovered(i),
-                Err(..) => println!("connect_enter cannot grab launcher"),
-            }
-        });*/
-        result_box.add_controller(gesture_click);
-        result_box.add_controller(ecm);
-
-        let launcher_cell_focus = launcher_cell.clone();
-
-        result_box.connect_has_focus_notify(move |f| {
-            println!("has_focus_notify");
-            match launcher_cell_focus.try_borrow_mut() {
-                Ok(mut launcher) => launcher.selected_search_idx = Some(
-                f.get().idx_in_container.try_into().unwrap()),
-                Err(..) => println!("has_focus_notify cannot grab launcher"),
-            }
-            println!("has_focus_notify-");
-        });
-      
         let context = result_box.style_context();
         context.add_class("result-box");
+        event_handler::attach_result_box_handlers(launcher_cell.clone(), &mut result_box, i);
         result_frames.push(result_box.into());
     }
 
@@ -189,7 +116,7 @@ fn screenshot_button(launcher_cell: Rc<RefCell<Launcher>>, icon_theme: &gtk::Ico
 
     let screenshot_style = screenshot_icon.style_context();
     screenshot_style.add_class("screenshot-button");
-    launcher.screenshot_button = Some(Rc::new(screenshot_icon.clone()));
+    launcher.screenshot_button = Rc::new(screenshot_icon.clone());
     screenshot_icon
 }
 

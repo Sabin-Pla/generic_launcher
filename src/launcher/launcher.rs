@@ -20,12 +20,12 @@ pub struct Launcher {
         Rc<gtk::CssProvider>)>,
     pub search_result_frames: Vec<SearchResultBox>,
     pub selected_search_idx: Option<isize>,
-    pub text_input: Option<Rc<gtk::Entry>>,
+    pub search_bar: Rc<gtk::Entry>,
     pub user_desktop_files: Option<Rc<Vec<XdgDesktopEntry>>>,
     pub search_context: SearchContext,
     pub input_buffer: Option<RefCell<SearchEntryBuffer>>,
     pub custom_launchers: Option<Rc<Vec<XdgDesktopEntry>>>,
-    pub screenshot_button: Option<Rc<gtk::Image>>,
+    pub screenshot_button: Rc<gtk::Image>,
     pub hovered_idx: usize,
     pub clock: Option<Rc<std::cell::RefCell<gtk::Label>>>,
     pub clock_sizes: Option<HashMap<(i32, i32), i32>>,
@@ -40,12 +40,12 @@ impl Launcher {
             css_provider: None,
             search_result_frames: vec!(),
             selected_search_idx: None,
-            text_input: None,
+            search_bar: Default::default(),
             user_desktop_files: None,
             search_context: SearchContext::default(),
             input_buffer: None,
             custom_launchers: None,
-            screenshot_button: None,
+            screenshot_button: Default::default(),
             hovered_idx: 0,
             clock: None,
             clock_sizes: None,
@@ -74,7 +74,7 @@ impl Launcher {
     }
 
     pub fn clear_search_buffer(&mut self) {
-        self.text_input.clone().unwrap().set_text("");
+        self.search_bar.clone().set_text("");
     }
 
     pub fn set_search_frame(&mut self, desktop_idx: usize, container_idx: usize, search_result_idx: usize) {
@@ -103,13 +103,6 @@ impl Launcher {
         self.search_result_frames[hovered_idx].grab_focus();
         // self.selected_search_idx = Some(hovered_idx as isize);
     }
-
-    /*
-    pub fn deselect_text(&mut self) {
-        let input = self.text_input.clone().unwrap();
-        let pos = self.search_context.buf.len() as i32;
-        input.select_region(pos - 1, pos - 1);
-    }*/
 
     pub fn reload_css(&mut self) {
         // todo!("Call gtk4::style_context_remove_provider_for_display");
@@ -141,13 +134,13 @@ pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
 
 pub fn hide_window(launcher: Rc<RefCell<Launcher>>) {
     WINDOW.with( |application_window| {
-            let mut application_window = (*application_window).borrow_mut();
-            let application_window = application_window.as_mut().unwrap();
-            application_window.set_visible(false);
-            let mut launcher = launcher.borrow_mut();
-            launcher.state = State::Hidden;
-        }
-    );
+        println!("Hiding window");
+        let mut application_window = (*application_window).borrow_mut();
+        let application_window = application_window.as_mut().unwrap();
+        application_window.set_visible(false);
+        let mut launcher = launcher.borrow_mut();
+        launcher.state = State::Hidden;
+    });
 }
 
 pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
@@ -181,7 +174,7 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
 
 pub fn focus_text_input(launcher: Rc<RefCell<Launcher>>) {
     let mut launcher = launcher.borrow_mut();
-    let text_input = launcher.text_input.clone().unwrap();
+    let search_bar = launcher.search_bar.clone();
     drop(launcher);
-    text_input.grab_focus();
+    search_bar.grab_focus();
 }
