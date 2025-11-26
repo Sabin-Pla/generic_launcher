@@ -46,7 +46,11 @@ mod inner {
     pub struct SearchResultBox(pub RefCell<SearchResultBoxWidget>);
 
     impl ObjectImpl for SearchResultBox {}
-    impl WidgetImpl for SearchResultBox {}
+    impl WidgetImpl for SearchResultBox {
+        fn grab_focus(&self) -> bool {
+            self.parent_grab_focus()
+        }
+    }
     impl ButtonImpl for SearchResultBox {}
 
     #[gtk::glib::object_subclass]

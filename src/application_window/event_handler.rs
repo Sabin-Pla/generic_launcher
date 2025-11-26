@@ -8,6 +8,7 @@ use gtk::prelude::EditableExt;
 use gtk::PropagationPhase;
 use gtk::prelude::WidgetExt;
 use gtk::prelude::IMContextExt;
+use gtk::prelude::EntryBufferExtManual;
 
 pub fn attach_screenshot_handlers(launcher: Rc<RefCell<Launcher>>, screenshot_icon: &mut gtk::Image) {
     let ecm = gtk::EventControllerMotion::builder()
@@ -62,33 +63,47 @@ pub fn attach_window_key_handler(
         application_window: &mut gtk::ApplicationWindow, 
         launcher_cell: Rc<RefCell<Launcher>>) {
 
-    let launcher_cell_capture = launcher_cell.clone();
-
-    let eck_capture = gtk::EventControllerKey::builder()
+    let eck = gtk::EventControllerKey::builder()
         .propagation_phase(PropagationPhase::Capture).build();
 
-    let key_handler_capture = move |
+    let key_handler = move |
             _: &gtk::EventControllerKey, key: gdk::Key, _: u32, _: gdk::ModifierType| -> gtk::glib::Propagation {
         match key {
             gdk::Key::Escape => {
                 println!("Hiding window");
-                launcher::hide_window(launcher_cell_capture.clone());
+                launcher::hide_window(launcher_cell.clone());
                 return gtk::glib::Propagation::Stop;
             },
             gdk::Key::Return => {
-                launcher::handle_enter_key(launcher_cell_capture.clone());
+                launcher::handle_enter_key(launcher_cell.clone());
             },
             gdk::Key::Down => {
-                launcher::scroll_search_results_down(launcher_cell_capture.clone());
+                launcher::scroll_search_results_down(launcher_cell.clone());
             },
-            _ => (),
+            _ => {
+                if let Some(character) = key.to_unicode() {
+                    println!("keyboard unicode");
+                    if launcher::focus_text_input(launcher_cell.clone()) {
+
+                        // search bar widget never receives key press because it was fired
+                        // on some other widget. So this key needs to be inserted manually.
+                        let launcher = launcher_cell.borrow();
+                        let input_buffer = launcher.input_buffer.clone().unwrap();
+                        let search_bar = launcher.search_bar.clone();
+                        drop(launcher);
+                        let mut input_bufer = input_buffer.borrow();
+                        let mut pos = input_buffer.borrow().length() as i32;
+                        // search_bar.insert_text(&character.to_string(), &mut pos);
+                    }
+                }
+            },
         };
 
         gtk::glib::Propagation::Proceed
     };
 
-    eck_capture.connect_key_pressed(key_handler_capture);
-    application_window.add_controller(eck_capture);
+    eck.connect_key_pressed(key_handler);
+    application_window.add_controller(eck);
 }
 
 pub fn setup_on_clock_tick(launcher: Rc<RefCell<Launcher>>) {
@@ -106,9 +121,9 @@ pub fn setup_on_clock_tick(launcher: Rc<RefCell<Launcher>>) {
 pub fn attach_result_box_handlers(
         launcher_cell: Rc<RefCell<Launcher>>, 
         result_box: &mut SearchResultBox, 
-        i: usize) {
+        frame_idx: usize) {
 
-     let gesture_click = gtk::GestureClick::builder()
+    let gesture_click = gtk::GestureClick::builder()
         .propagation_phase(PropagationPhase::Capture).build();
     let ecm = gtk::EventControllerMotion::builder()
         .propagation_phase(PropagationPhase::Capture).build();
@@ -116,34 +131,34 @@ pub fn attach_result_box_handlers(
     let launcher_cell_gc = launcher_cell.clone();
 
     gesture_click.connect_pressed(move |_, _, _, _| {
+        println!("gesture_click handler {frame_idx}");
         let mut launcher = launcher_cell_gc.borrow_mut();
-        if launcher.search_result_frames[i].has_focus() {
+        if launcher.search_result_frames[frame_idx].has_focus() {
             launcher.launch_selected_application();
+            drop(launcher);
         } else {
-            let frame = launcher.search_result_frames[i].clone();
+            let frame = launcher.search_result_frames[frame_idx].clone();
             drop(launcher);
             frame.grab_focus();
-            launcher::hide_window(launcher_cell_gc.clone());
         }
+        launcher::hide_window(launcher_cell_gc.clone());
     });
 
     let launcher_cell_ecm = launcher_cell.clone();
     ecm.connect_enter(move |_, _, _| { 
-        match launcher_cell_ecm.try_borrow_mut() {
-            Ok(mut launcher) => launcher.handle_hovered(i),
-            Err(..) => println!("connect_enter cannot grab launcher"),
-        }
+        println!("ecm enter result frame {frame_idx}");
+        launcher::handle_result_box_hovered(launcher_cell_ecm.clone(), frame_idx);
     });
+
     result_box.add_controller(gesture_click);
     result_box.add_controller(ecm);
 
     let launcher_cell_focus = launcher_cell.clone();
 
     result_box.connect_has_focus_notify(move |f| {
-        match launcher_cell_focus.try_borrow_mut() {
-            Ok(mut launcher) => launcher.selected_search_idx = Some(f.get().idx_in_container.try_into().unwrap()),
-            Err(..) => println!("has_focus_notify cannot grab launcher"),
-        }
+        println!("result frame focus {frame_idx}");
+        let mut launcher = launcher_cell_focus.borrow_mut();
+        launcher.selected_search_idx = Some(f.get().idx_in_container.try_into().unwrap());
     });
 }
 
@@ -161,6 +176,7 @@ pub fn attach_search_bar_handlers(
     
     let launcher_cell_buffer_changed = launcher_cell.clone();
     search_bar.connect_changed(move |buffer| {
+        println!("Search bar changed");
         let buffer = buffer.text().to_string();
         let launcher_cell = launcher_cell_buffer_changed.clone();
         let mut launcher = launcher_cell.borrow_mut();
@@ -170,9 +186,10 @@ pub fn attach_search_bar_handlers(
 
     let launcher_cell_focus = launcher_cell;
     search_bar.connect_has_focus_notify(move |_f| {
+        println!("search_bar connect_has_focus_notify");
         match launcher_cell_focus.try_borrow_mut() {
             Ok(mut launcher) => launcher.selected_search_idx = None,
-            Err(..) => println!("failed to focus search bar"),
+            Err(..) => println!("error in connect_has_focus_notify"),
         }
     });
 

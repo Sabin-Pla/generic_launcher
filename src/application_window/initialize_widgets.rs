@@ -84,6 +84,7 @@ fn search_result_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
         let result_box = SearchResultBoxWidget::from(i);
         let mut result_box = SearchResultBox::new(result_box);
         result_box.set_focusable(true);
+        result_box.set_can_focus(true);
         result_box.set_focus_on_click(true);
         gtk::prelude::ButtonExt::set_label(&result_box, &"");
         let context = result_box.style_context();

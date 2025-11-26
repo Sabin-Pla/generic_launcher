@@ -93,15 +93,9 @@ impl Launcher {
             println!("icon name {} {}", icon_name, image.uses_fallback());
             let root = gtk::Grid::builder().hexpand(true).vexpand(true).column_spacing(100).build();
             root.attach(&image, 1, 1, 3, 20);
-            //result_box.set_icon(&icon_name);
+            // result_box.set_icon(&icon_name);
         }
 
-    }
-
-    pub fn handle_hovered(&mut self, hovered_idx: usize) {
-        self.hovered_idx = hovered_idx;
-        self.search_result_frames[hovered_idx].grab_focus();
-        // self.selected_search_idx = Some(hovered_idx as isize);
     }
 
     pub fn reload_css(&mut self) {
@@ -124,10 +118,9 @@ pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
         drop(launcher);
         hide_window(launcher_cell)
     } else {
-        let r = launcher.search_result_frames[0].clone();
-        println!("{:?}", &r);
+        let result_box = launcher.search_result_frames[0].clone();
         drop(launcher);
-        r.grab_focus();
+        result_box.grab_focus();
     };
 }
 
@@ -145,7 +138,6 @@ pub fn hide_window(launcher: Rc<RefCell<Launcher>>) {
 
 pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
     let mut launcher = launcher.borrow_mut();
-    // launcher.deselect_text();
     const END_IDX: isize = (RESULT_ENTRY_COUNT - 1) as isize;
     match launcher.selected_search_idx {
         Some(END_IDX) => {
@@ -172,9 +164,23 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
     }
 }
 
-pub fn focus_text_input(launcher: Rc<RefCell<Launcher>>) {
+pub fn focus_text_input(launcher: Rc<RefCell<Launcher>>) -> bool {
     let mut launcher = launcher.borrow_mut();
     let search_bar = launcher.search_bar.clone();
     drop(launcher);
-    search_bar.grab_focus();
+    if !search_bar.has_focus() {
+        search_bar.grab_focus_without_selecting();
+        return true;
+    }
+    false
+}
+
+pub fn handle_result_box_hovered(launcher: Rc<RefCell<Launcher>>, hovered_idx: usize) {
+    let mut launcher = launcher.borrow_mut();
+    launcher.hovered_idx = hovered_idx;
+    println!("launcher handle hover: {hovered_idx}");
+    launcher.selected_search_idx = Some(hovered_idx as isize);
+    let result_box = launcher.search_result_frames[hovered_idx].clone();
+    drop(launcher);
+    result_box.grab_focus();
 }

@@ -40,12 +40,10 @@ mod inner {
     	}
 
         fn text(&self) -> glib::GString {
-            println!("SearchEntryBuffer text()");
             glib::GString::from_string_unchecked(self.0.borrow().clone())
         }
 
         fn deleted_text(&self, position: u32, n_chars: Option<u32>) { 
-            println!("SearchEntryBuffer deleted_text()");
             let mut buf = self.0.borrow_mut();
             let position_idx = utils::char_position(&buf, position as usize);
 
@@ -63,7 +61,6 @@ mod inner {
         }
 
         fn length(&self) -> u32 {
-            println!("SearchEntryBuffer length()");
             self.0.borrow_mut().chars().count().try_into().unwrap()
         } 
     }

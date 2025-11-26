@@ -1,7 +1,7 @@
 [package]
 name = "generic_launcher"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,6 +9,8 @@ edition = "2021"
 gtk4-layer-shell = "0.6.3"
 gdk = { package = "gdk4", version = "0.10.1" }
 gtk = { package = "gtk4", features=["v4_12"], version = "0.10.1" }
+gtk4-sys = { version = "0.10.1" }
+
 gio = "0.21.4"
 glib = "0.21.4"
 glib-sys = "0.19.0"
