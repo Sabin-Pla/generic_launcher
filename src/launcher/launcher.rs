@@ -30,6 +30,7 @@ pub struct Launcher {
     pub clock: Option<Rc<std::cell::RefCell<gtk::Label>>>,
     pub clock_sizes: Option<HashMap<(i32, i32), i32>>,
     pub current_monitor: Option<(i32, i32)>,
+    hovering_suppressed: bool,
 }
 
 
@@ -50,7 +51,18 @@ impl Launcher {
             clock: None,
             clock_sizes: None,
             current_monitor: None,
+            hovering_suppressed: false
         }
+    }
+
+    pub fn disable_motion_events(&mut self) {
+        println!("disable_motion_events()");
+        self.hovering_suppressed = true;
+    }
+
+    pub fn enable_motion_events(&mut self) {
+        println!("enable_motion_events()");
+        self.hovering_suppressed = false;
     }
 
     pub fn clear_search_results(&mut self) {
@@ -177,10 +189,16 @@ pub fn focus_text_input(launcher: Rc<RefCell<Launcher>>) -> bool {
 
 pub fn handle_result_box_hovered(launcher: Rc<RefCell<Launcher>>, hovered_idx: usize) {
     let mut launcher = launcher.borrow_mut();
+    if launcher.hovering_suppressed {
+        println!("Hovering is suppressed");
+        launcher.enable_motion_events();
+        return;
+    }
     launcher.hovered_idx = hovered_idx;
     println!("launcher handle hover: {hovered_idx}");
     launcher.selected_search_idx = Some(hovered_idx as isize);
     let result_box = launcher.search_result_frames[hovered_idx].clone();
     drop(launcher);
+    println!("refocusing result box {hovered_idx}");
     result_box.grab_focus();
 }

@@ -181,16 +181,17 @@ pub fn attach_search_bar_handlers(
         let launcher_cell = launcher_cell_buffer_changed.clone();
         let mut launcher = launcher_cell.borrow_mut();
         let search_results = search::refetch_results(&mut launcher.search_context, buffer);
+
+        // in case the mouse cursor is on a result box while they type, disable stealing cursor focus
+        launcher.disable_motion_events(); // will be re-enabled next time a motion event is triggered.
         search::display_search_results(&mut launcher, search_results);
     });
 
     let launcher_cell_focus = launcher_cell;
-    search_bar.connect_has_focus_notify(move |_f| {
+    search_bar.connect_has_focus_notify(move |_| {
         println!("search_bar connect_has_focus_notify");
-        match launcher_cell_focus.try_borrow_mut() {
-            Ok(mut launcher) => launcher.selected_search_idx = None,
-            Err(..) => println!("error in connect_has_focus_notify"),
-        }
+        let mut launcher = launcher_cell_focus.borrow_mut();
+        launcher.selected_search_idx = None;
     });
 
     search_bar.add_controller(ec);
