@@ -1,4 +1,3 @@
-pub mod clock;
 mod launcher;
 mod state;
 

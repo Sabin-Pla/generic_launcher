@@ -8,7 +8,6 @@ use crate::xdg_desktop_entry::XdgDesktopEntry;
 use crate::search;
 use crate::search::{SearchContext};
 use super::State;
-use super::clock;
 
 use crate::launcher::RESULT_ENTRY_COUNT;
 use crate::WINDOW;
@@ -27,8 +26,6 @@ pub struct Launcher {
     pub custom_launchers: Option<Rc<Vec<XdgDesktopEntry>>>,
     pub screenshot_button: Rc<gtk::Image>,
     pub hovered_idx: usize,
-    pub clock: Option<Rc<std::cell::RefCell<gtk::Label>>>,
-    pub clock_sizes: Option<HashMap<(i32, i32), i32>>,
     pub current_monitor: Option<(i32, i32)>,
     hovering_suppressed: bool,
 }
@@ -48,8 +45,6 @@ impl Launcher {
             custom_launchers: None,
             screenshot_button: Default::default(),
             hovered_idx: 0,
-            clock: None,
-            clock_sizes: None,
             current_monitor: None,
             hovering_suppressed: false
         }
@@ -118,8 +113,6 @@ impl Launcher {
                 file.path().expect("invalid path for css provider")),
             None => ()
         };
-        let clock_sizes = &mut self.clock_sizes;
-        *clock_sizes = Some(HashMap::new());
     }
 }
 

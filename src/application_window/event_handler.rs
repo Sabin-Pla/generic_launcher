@@ -1,4 +1,4 @@
-use crate::launcher::{Launcher, clock};
+use crate::launcher::Launcher;
 use crate::{Rc, RefCell};
 use crate::application_window::event_handler;
 use crate::gobject::{SearchResultBox, SearchEntryIMContext};
@@ -104,18 +104,6 @@ pub fn attach_window_key_handler(
 
     eck.connect_key_pressed(key_handler);
     application_window.add_controller(eck);
-}
-
-pub fn setup_on_clock_tick(launcher: Rc<RefCell<Launcher>>) {
-    let on_tick =  move || -> glib::ControlFlow {
-        let launcher = launcher.borrow_mut();
-        let clock = launcher.clock.clone();
-        let clock = clock.unwrap();
-        let clock = clock.borrow();
-        clock::set_clock_time(&clock::get_time_str(), &clock);
-        glib::ControlFlow::Continue
-    };
-    glib::timeout_add_seconds_local(1, on_tick);
 }
 
 pub fn attach_result_box_handlers(

@@ -36,7 +36,6 @@ thread_local! {
 
 unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<Launcher>>) {
     // this function is called whenever the application is 'activated' (reopened after being dismissed)
-    let launcher_cell_clock = launcher_cell.clone();
     let mut launcher = launcher_cell.borrow_mut();
 
 	WINDOW.with( |application_window| {
@@ -52,25 +51,9 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
     			launcher.state = State::Hidden;
 			},
 			State::Hidden => { 
-                let clock = unsafe {
-                    launcher.clock.clone().expect("Clock not initialized")
-                };
-                let clock = clock.borrow();
-                let display = clock.display();
-
-                drop(launcher);
                 application_window.set_visible(true);
 
                 let surface = application_window.surface().unwrap();
-                let display = display.monitor_at_surface(&surface);
-                let rect =  display.unwrap().geometry();
-                let (width, height) = (rect.width(), rect.height());
-                println!("monitor: {width} {height}");
-                let mut launcher = launcher_cell.borrow_mut();
-                launcher.current_monitor = Some((width, height));
-                drop(launcher);
-                launcher::clock::set_clock_size(application_window, launcher_cell_clock);
-                let mut launcher = launcher_cell.borrow_mut();
                 launcher.clear_search_results();
                 let search_bar = launcher.search_bar.clone();
                 drop(launcher);

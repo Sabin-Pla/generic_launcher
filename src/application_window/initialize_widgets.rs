@@ -7,8 +7,7 @@ use gtk4_layer_shell::{KeyboardMode, LayerShell};
 use crate::launcher;
 use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};
 use crate::search::SearchContext;
-use crate::launcher::clock;
-use crate::gobject::{SearchResultBox, SearchResultBoxWidget, SearchEntryIMContext};
+use crate::gobject::{ClockWidget, SearchResultBox, SearchResultBoxWidget, SearchEntryIMContext};
 use crate::{xdg_desktop_entry, SearchEntryBuffer};
 
 use super::event_handler;
@@ -27,7 +26,7 @@ fn topbar(launcher: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::
 	let topbar = gtk::CenterBox::builder()
         .orientation(gtk::Orientation::Horizontal)
         .build();
-    topbar.set_center_widget(Some(&clock_box(launcher.clone())));
+    topbar.set_center_widget(Some(&ClockWidget::new()));
 	topbar.set_end_widget(Some(&screenshot_button(launcher, icon_theme)));
 	topbar
 }
@@ -119,19 +118,4 @@ fn screenshot_button(launcher_cell: Rc<RefCell<Launcher>>, icon_theme: &gtk::Ico
     screenshot_style.add_class("screenshot-button");
     launcher.screenshot_button = Rc::new(screenshot_icon.clone());
     screenshot_icon
-}
-
-fn clock_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
-    let mut launcher = launcher_cell.borrow_mut();
-	let clock_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    let clock = gtk::Label::default();
-    launcher.clock = Some(Rc::new(RefCell::new(clock.clone())));
-    launcher.clock_sizes = Some(HashMap::new());
-    clock_box.append(&clock);
-    let clock_style = clock.style_context();
-    clock_style.add_class("clock");
-    clock.set_xalign(0.0);
-    clock::set_clock_time(&clock::get_time_str(), &clock);
-    event_handler::setup_on_clock_tick(launcher_cell.clone());
-    clock_box
 }
