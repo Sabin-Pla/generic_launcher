@@ -1,43 +1,43 @@
 use std::cell::RefMut;
 use std::cell::{Ref, RefCell};
 
-use gtk::glib::{self, Object};
-use gtk::ConstraintTarget;
-use gtk::subclass::prelude::*;
-use gtk::Buildable;
 use gtk::Accessible;
 use gtk::Actionable;
+use gtk::Buildable;
+use gtk::ConstraintTarget;
+use gtk::glib::{self, Object};
+use gtk::subclass::prelude::*;
 
-pub struct SearchResultBoxWidget { 
-	pub idx_in_container: usize,
+pub struct SearchResultBoxWidget {
+    pub idx_in_container: usize,
     pub idx_in_xdg_entries_vector: usize,
     pub idx_in_search_result_vector: usize,
 }
 
 impl SearchResultBoxWidget {
-	pub fn new() -> Self { 
-		Self { 
-			idx_in_container: 0,
+    pub fn new() -> Self {
+        Self {
+            idx_in_container: 0,
             idx_in_xdg_entries_vector: 0,
             idx_in_search_result_vector: 0,
-		} 
-	}
-
-	pub fn from(idx: usize) -> Self {
-		Self { 
-            idx_in_container: idx, 
-            idx_in_xdg_entries_vector: 0,
-            idx_in_search_result_vector: 0
         }
-	}
+    }
+
+    pub fn from(idx: usize) -> Self {
+        Self {
+            idx_in_container: idx,
+            idx_in_xdg_entries_vector: 0,
+            idx_in_search_result_vector: 0,
+        }
+    }
 
     pub fn set_idx_in_xdg_entries_vector(&mut self, idx: usize) {
         self.idx_in_xdg_entries_vector = idx;
-    } 
+    }
 
     pub fn set_idx_in_search_result_vector(&mut self, idx: usize) {
         self.idx_in_search_result_vector = idx;
-    } 
+    }
 }
 
 mod inner {
@@ -67,7 +67,7 @@ mod inner {
 
 glib::wrapper! {
     pub struct SearchResultBox(ObjectSubclass<inner::SearchResultBox>)
-    @extends gtk::Widget, gtk::Button, gtk::Frame, ConstraintTarget, Buildable, Accessible, Actionable; 
+    @extends gtk::Widget, gtk::Button, gtk::Frame, ConstraintTarget, Buildable, Accessible, Actionable;
 }
 
 impl SearchResultBox {
@@ -88,7 +88,7 @@ impl SearchResultBox {
     pub fn set_desktop_idx(&mut self, idx: usize) {
         let mut inner = self.get_mut();
         inner.set_idx_in_xdg_entries_vector(idx);
-    } 
+    }
 
     pub fn get_desktop_idx(&self) -> usize {
         let inner = self.get();

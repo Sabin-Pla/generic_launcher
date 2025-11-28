@@ -19,7 +19,7 @@ set -x
 if ! install -v ./target/debug/generic_launcher "$GENERIC_LAUNCHER_INSTALL_DIR"; then 
 	echo $?
 fi
-if ! diff -r -q "$project_dir" "$GENERIC_LAUNCHER_INSTALL_DIR"; then
+if [[ $(realpath "$project_dir") !=  $(realpath "$GENERIC_LAUNCHER_INSTALL_DIR") ]]; then
 	cp -r "$project_dir/assets" "$GENERIC_LAUNCHER_INSTALL_DIR"
 	cp "$project_dir/launcher.css" "$GENERIC_LAUNCHER_INSTALL_DIR"
 fi

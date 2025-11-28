@@ -1,16 +1,20 @@
-use crate::launcher::Launcher;
-use crate::{Rc, RefCell};
-use crate::gobject::{SearchResultBox, SearchEntryIMContext};
+use crate::gobject::{SearchEntryIMContext, SearchResultBox};
 use crate::launcher;
+use crate::launcher::Launcher;
 use crate::search;
-use gtk::prelude::EditableExt;
+use crate::{Rc, RefCell};
 use gtk::PropagationPhase;
-use gtk::prelude::WidgetExt;
+use gtk::prelude::EditableExt;
 use gtk::prelude::IMContextExt;
+use gtk::prelude::WidgetExt;
 
-pub fn attach_screenshot_handlers(launcher: Rc<RefCell<Launcher>>, screenshot_icon: &mut gtk::Image) {
+pub fn attach_screenshot_handlers(
+    launcher: Rc<RefCell<Launcher>>,
+    screenshot_icon: &mut gtk::Image,
+) {
     let ecm = gtk::EventControllerMotion::builder()
-        .propagation_phase(gtk::PropagationPhase::Capture).build();
+        .propagation_phase(gtk::PropagationPhase::Capture)
+        .build();
     let gesture_click = gtk::GestureClick::new();
 
     let launcher_cell_enter = launcher.clone();
@@ -18,7 +22,7 @@ pub fn attach_screenshot_handlers(launcher: Rc<RefCell<Launcher>>, screenshot_ic
     let launcher_cell_click = launcher.clone();
     let launcher_cell_focus_notify = launcher;
 
-    let screenshot_enter_handler = move |_: &gtk::EventControllerMotion,  _: f64, _: f64| {
+    let screenshot_enter_handler = move |_: &gtk::EventControllerMotion, _: f64, _: f64| {
         println!("Screenshot enter handler");
         let launcher = launcher_cell_enter.borrow_mut();
         let screenshot_button = launcher.screenshot_button.clone();
@@ -30,9 +34,7 @@ pub fn attach_screenshot_handlers(launcher: Rc<RefCell<Launcher>>, screenshot_ic
         launcher::focus_text_input(launcher_cell_focus.clone());
     };
 
-    let screenshot_click_handler = move |
-        _gc: &gtk::GestureClick, _: i32, _: f64, _: f64| {
-
+    let screenshot_click_handler = move |_gc: &gtk::GestureClick, _: i32, _: f64, _: f64| {
         let launcher = launcher_cell_click.borrow_mut();
         let screenshot_button = launcher.screenshot_button.clone();
         drop(launcher);
@@ -58,31 +60,34 @@ pub fn attach_screenshot_handlers(launcher: Rc<RefCell<Launcher>>, screenshot_ic
 }
 
 pub fn attach_window_key_handler(
-        application_window: &mut gtk::ApplicationWindow, 
-        launcher_cell: Rc<RefCell<Launcher>>) {
-
+    application_window: &mut gtk::ApplicationWindow,
+    launcher_cell: Rc<RefCell<Launcher>>,
+) {
     let eck = gtk::EventControllerKey::builder()
-        .propagation_phase(PropagationPhase::Capture).build();
+        .propagation_phase(PropagationPhase::Capture)
+        .build();
 
-    let key_handler = move |
-            _: &gtk::EventControllerKey, key: gdk::Key, _: u32, _: gdk::ModifierType| -> gtk::glib::Propagation {
+    let key_handler = move |_: &gtk::EventControllerKey,
+                            key: gdk::Key,
+                            _: u32,
+                            _: gdk::ModifierType|
+          -> gtk::glib::Propagation {
         match key {
             gdk::Key::Escape => {
                 println!("Hiding window");
                 launcher::hide_window(launcher_cell.clone());
                 return gtk::glib::Propagation::Stop;
-            },
+            }
             gdk::Key::Return => {
                 launcher::handle_enter_key(launcher_cell.clone());
-            },
+            }
             gdk::Key::Down => {
                 launcher::scroll_search_results_down(launcher_cell.clone());
-            },
+            }
             _ => {
                 if let Some(character) = key.to_unicode() {
                     println!("keyboard unicode");
                     if launcher::focus_text_input(launcher_cell.clone()) {
-
                         // search bar widget never receives key press because it was fired
                         // on some other widget. So this key needs to be inserted manually.
                         let launcher = launcher_cell.borrow();
@@ -94,7 +99,7 @@ pub fn attach_window_key_handler(
                         // search_bar.insert_text(&character.to_string(), &mut pos);
                     }
                 }
-            },
+            }
         };
 
         gtk::glib::Propagation::Proceed
@@ -105,14 +110,16 @@ pub fn attach_window_key_handler(
 }
 
 pub fn attach_result_box_handlers(
-        launcher_cell: Rc<RefCell<Launcher>>, 
-        result_box: &mut SearchResultBox, 
-        frame_idx: usize) {
-
+    launcher_cell: Rc<RefCell<Launcher>>,
+    result_box: &mut SearchResultBox,
+    frame_idx: usize,
+) {
     let gesture_click = gtk::GestureClick::builder()
-        .propagation_phase(PropagationPhase::Capture).build();
+        .propagation_phase(PropagationPhase::Capture)
+        .build();
     let ecm = gtk::EventControllerMotion::builder()
-        .propagation_phase(PropagationPhase::Capture).build();
+        .propagation_phase(PropagationPhase::Capture)
+        .build();
 
     let launcher_cell_gc = launcher_cell.clone();
 
@@ -131,7 +138,7 @@ pub fn attach_result_box_handlers(
     });
 
     let launcher_cell_ecm = launcher_cell.clone();
-    ecm.connect_enter(move |_, _, _| { 
+    ecm.connect_enter(move |_, _, _| {
         println!("ecm enter result frame {frame_idx}");
         launcher::handle_result_box_hovered(launcher_cell_ecm.clone(), frame_idx);
     });
@@ -149,17 +156,18 @@ pub fn attach_result_box_handlers(
 }
 
 pub fn attach_search_bar_handlers(
-        launcher_cell: Rc<RefCell<Launcher>>, 
-        search_bar: &mut gtk::Entry) {
-
+    launcher_cell: Rc<RefCell<Launcher>>,
+    search_bar: &mut gtk::Entry,
+) {
     let ec = gtk::EventControllerKey::builder()
         .name("im_controller")
-        .propagation_phase(PropagationPhase::Capture).build();
+        .propagation_phase(PropagationPhase::Capture)
+        .build();
     let im_context = SearchEntryIMContext::new();
-    let im_simple = gtk::IMContextSimple::new(); 
+    let im_simple = gtk::IMContextSimple::new();
     // ec.set_im_context(Some(&im_context));
     im_context.set_use_preedit(true);
-    
+
     let launcher_cell_buffer_changed = launcher_cell.clone();
     search_bar.connect_changed(move |buffer| {
         println!("Search bar changed");

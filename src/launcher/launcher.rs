@@ -1,21 +1,18 @@
-
 use gtk::prelude::*;
 
-use crate::{Rc, RefCell};
-use crate::gobject::{SearchResultBox, SearchEntryBuffer};
-use crate::xdg_desktop_entry::XdgDesktopEntry;
-use crate::search;
-use crate::search::{SearchContext};
 use super::State;
+use crate::gobject::{SearchEntryBuffer, SearchResultBox};
+use crate::search;
+use crate::search::SearchContext;
+use crate::xdg_desktop_entry::XdgDesktopEntry;
+use crate::{Rc, RefCell};
 
-use crate::launcher::RESULT_ENTRY_COUNT;
 use crate::WINDOW;
+use crate::launcher::RESULT_ENTRY_COUNT;
 
 pub struct Launcher {
     pub state: State,
-    pub css_provider: Option<(
-        std::sync::Arc<gio::File>, 
-        Rc<gtk::CssProvider>)>,
+    pub css_provider: Option<(std::sync::Arc<gio::File>, gtk::CssProvider)>,
     pub search_result_frames: Vec<SearchResultBox>,
     pub selected_search_idx: Option<isize>,
     pub search_bar: Rc<gtk::Entry>,
@@ -29,13 +26,12 @@ pub struct Launcher {
     hovering_suppressed: bool,
 }
 
-
 impl Launcher {
     pub fn uninitialized() -> Self {
-        Launcher { 
-            state: State::NotStarted, 
+        Launcher {
+            state: State::NotStarted,
             css_provider: None,
-            search_result_frames: vec!(),
+            search_result_frames: vec![],
             selected_search_idx: None,
             search_bar: Default::default(),
             user_desktop_files: None,
@@ -45,7 +41,7 @@ impl Launcher {
             screenshot_button: Default::default(),
             hovered_idx: 0,
             current_monitor: Rc::new(RefCell::new(None)),
-            hovering_suppressed: false
+            hovering_suppressed: false,
         }
     }
 
@@ -72,14 +68,19 @@ impl Launcher {
             Some(-1) => {
                 self.custom_launchers.clone().unwrap()[0].launch(None);
                 return;
-            }, 
-            Some(0)|None => self.search_result_frames[0].get(),
-            Some(idx) => self.search_result_frames[idx as usize].get()
+            }
+            Some(0) | None => self.search_result_frames[0].get(),
+            Some(idx) => self.search_result_frames[idx as usize].get(),
         };
         self.user_desktop_files.clone().unwrap()[idx.idx_in_xdg_entries_vector].launch(None);
     }
 
-    pub fn set_search_frame(&mut self, desktop_idx: usize, container_idx: usize, search_result_idx: usize) {
+    pub fn set_search_frame(
+        &mut self,
+        desktop_idx: usize,
+        container_idx: usize,
+        search_result_idx: usize,
+    ) {
         let desktop_entry = &self.user_desktop_files.clone().unwrap()[desktop_idx];
         let display_name = desktop_entry.display_name.clone();
         let result_box = &mut self.search_result_frames[container_idx];
@@ -93,20 +94,24 @@ impl Launcher {
             let icon_name = app_info.locale_string("Icon").unwrap();
             let image = gtk::Image::from_icon_name(&icon_name);
             println!("icon name {} {}", icon_name, image.uses_fallback());
-            let root = gtk::Grid::builder().hexpand(true).vexpand(true).column_spacing(100).build();
+            let root = gtk::Grid::builder()
+                .hexpand(true)
+                .vexpand(true)
+                .column_spacing(100)
+                .build();
             root.attach(&image, 1, 1, 3, 20);
             // result_box.set_icon(&icon_name);
         }
-
     }
 
     pub fn reload_css(&mut self) {
         // todo!("Call gtk4::style_context_remove_provider_for_display");
         println!("reloading css...");
         match &self.css_provider {
-            Some((file, provider)) => provider.load_from_path(
-                file.path().expect("invalid path for css provider")),
-            None => ()
+            Some((file, provider)) => {
+                provider.load_from_path(file.path().expect("invalid path for css provider"))
+            }
+            None => (),
         };
     }
 }
@@ -124,9 +129,8 @@ pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
     };
 }
 
-
 pub fn hide_window(launcher: Rc<RefCell<Launcher>>) {
-    WINDOW.with( |application_window| {
+    WINDOW.with(|application_window| {
         println!("Hiding window");
         let mut application_window = (*application_window).borrow_mut();
         let application_window = application_window.as_mut().unwrap();
@@ -141,26 +145,30 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
     const END_IDX: isize = (RESULT_ENTRY_COUNT - 1) as isize;
     match launcher.selected_search_idx {
         Some(END_IDX) => {
-            let next_search_result_idx = launcher.search_result_frames[
-                RESULT_ENTRY_COUNT - 1].get_idx_in_search_result_vector() + 1;
+            let next_search_result_idx = launcher.search_result_frames[RESULT_ENTRY_COUNT - 1]
+                .get_idx_in_search_result_vector()
+                + 1;
             let next_result_desktop_idx = search::get_xdg_index_from_last_search_result_idx(
-                &launcher.search_context, next_search_result_idx);
+                &launcher.search_context,
+                next_search_result_idx,
+            );
             let next_result_desktop_idx = match next_result_desktop_idx {
                 Some(idx) => idx,
-                None => return
+                None => return,
             };
             for i in 0..launcher.search_result_frames.len() - 1 {
-                let next_box = &launcher.search_result_frames[i+1];
+                let next_box = &launcher.search_result_frames[i + 1];
                 let search_result_idx = next_box.get_idx_in_search_result_vector();
                 let desktop_idx = next_box.get_desktop_idx();
                 launcher.set_search_frame(desktop_idx, i, search_result_idx);
             }
             launcher.set_search_frame(
-                next_result_desktop_idx, 
-                RESULT_ENTRY_COUNT - 1, 
-                next_search_result_idx);
-        },
-        _ => ()
+                next_result_desktop_idx,
+                RESULT_ENTRY_COUNT - 1,
+                next_search_result_idx,
+            );
+        }
+        _ => (),
     }
 }
 

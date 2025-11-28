@@ -3,7 +3,7 @@ use gtk::subclass::prelude::*;
 
 mod inner {
     use super::*;
-    
+
     pub struct SearchEntryIMContext();
 
     #[gtk::glib::object_subclass]
@@ -19,24 +19,23 @@ mod inner {
 
     impl ObjectImpl for SearchEntryIMContext {}
     impl IMContextImpl for SearchEntryIMContext {
-         fn retrieve_surrounding(&self) -> bool {
+        fn retrieve_surrounding(&self) -> bool {
             true
-         }
+        }
 
-         fn commit(&self, _: &str) {}
+        fn commit(&self, _: &str) {}
 
-         fn preedit_start(&self) {}
+        fn preedit_start(&self) {}
 
         fn filter_keypress(&self, _event: &gdk::Event) -> bool {
             // Claim the event so GTK will call the other IM methods
             false
         }
     }
-
 }
 
 glib::wrapper! {
-    pub struct SearchEntryIMContext(ObjectSubclass<inner::SearchEntryIMContext>)  
+    pub struct SearchEntryIMContext(ObjectSubclass<inner::SearchEntryIMContext>)
     @extends gtk::IMContext;
 }
 

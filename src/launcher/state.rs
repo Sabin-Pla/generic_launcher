@@ -2,5 +2,5 @@
 pub enum State {
     Hidden,
     Visible,
-    NotStarted
+    NotStarted,
 }
