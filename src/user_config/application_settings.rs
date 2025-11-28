@@ -26,7 +26,7 @@ fn css_file() -> gio::File {
     let mut css_path = glib::user_config_dir();
     css_path.push("generic_launcher");
     css_path.push(&css_subpath);
-    get_or_symlink(css_path, css_subpath)
+    get_or_symlink(css_path, css_subpath).expect("failed to get css file")
 }
 
 fn icons_file() -> gio::File {
@@ -34,12 +34,12 @@ fn icons_file() -> gio::File {
 	let installed_icon_path = glib::user_data_dir().into_iter()
 		.chain(&icon_theme_subpath)
 		.collect();
-	get_or_symlink(installed_icon_path, PathBuf::from("assets"))
+	get_or_symlink(installed_icon_path, PathBuf::from("assets")).expect("failed to get icons file")
 }
 
-fn get_or_symlink<P: AsRef<Path>>(path: P, fallback: P) -> gio::File {
+fn get_or_symlink<P: AsRef<Path>>(path: P, fallback: P) -> Result<gio::File, std::io::Error> {
 	match path.as_ref().exists() {
-        true => gio::File::for_path(path),
+        true => Ok(gio::File::for_path(path)),
         false => {
         	let install_dir: PathBuf  = env::var("GENERIC_LAUNCHER_INSTALL_DIR")
         		.expect("GENERIC_LAUNCHER_INSTALL_DIR variable must be provided on initialization")
@@ -51,7 +51,7 @@ fn get_or_symlink<P: AsRef<Path>>(path: P, fallback: P) -> gio::File {
 			match std::fs::symlink_metadata(path.as_ref()) {
 				Ok(metadata) => {
 					if metadata.is_symlink() {
-						std::fs::remove_file(path.as_ref());
+						std::fs::remove_file(path.as_ref())?;
 					}
 				}
 				Err(..) => (),
@@ -63,7 +63,7 @@ fn get_or_symlink<P: AsRef<Path>>(path: P, fallback: P) -> gio::File {
             let _ = std::os::unix::fs::symlink(&fallback, &path).expect(
             	"failed to make symlink");
             println!("symlinked path {:?} {:?}", path.as_ref(), fallback.into_os_string());
-          	gio::File::for_path(path)
+          	Ok(gio::File::for_path(path))
         }
     }
 }

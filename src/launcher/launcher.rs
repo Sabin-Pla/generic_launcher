@@ -1,4 +1,3 @@
-use crate::HashMap;
 
 use gtk::prelude::*;
 
@@ -26,7 +25,7 @@ pub struct Launcher {
     pub custom_launchers: Option<Rc<Vec<XdgDesktopEntry>>>,
     pub screenshot_button: Rc<gtk::Image>,
     pub hovered_idx: usize,
-    pub current_monitor: Option<(i32, i32)>,
+    pub current_monitor: Rc<RefCell<Option<(i32, i32)>>>,
     hovering_suppressed: bool,
 }
 
@@ -45,7 +44,7 @@ impl Launcher {
             custom_launchers: None,
             screenshot_button: Default::default(),
             hovered_idx: 0,
-            current_monitor: None,
+            current_monitor: Rc::new(RefCell::new(None)),
             hovering_suppressed: false
         }
     }
@@ -78,10 +77,6 @@ impl Launcher {
             Some(idx) => self.search_result_frames[idx as usize].get()
         };
         self.user_desktop_files.clone().unwrap()[idx.idx_in_xdg_entries_vector].launch(None);
-    }
-
-    pub fn clear_search_buffer(&mut self) {
-        self.search_bar.clone().set_text("");
     }
 
     pub fn set_search_frame(&mut self, desktop_idx: usize, container_idx: usize, search_result_idx: usize) {
@@ -170,7 +165,7 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
 }
 
 pub fn focus_text_input(launcher: Rc<RefCell<Launcher>>) -> bool {
-    let mut launcher = launcher.borrow_mut();
+    let launcher = launcher.borrow_mut();
     let search_bar = launcher.search_bar.clone();
     drop(launcher);
     if !search_bar.has_focus() {

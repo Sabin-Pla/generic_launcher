@@ -1,6 +1,5 @@
 use crate::launcher::Launcher;
 use crate::{Rc, RefCell};
-use crate::application_window::event_handler;
 use crate::gobject::{SearchResultBox, SearchEntryIMContext};
 use crate::launcher;
 use crate::search;
@@ -8,7 +7,6 @@ use gtk::prelude::EditableExt;
 use gtk::PropagationPhase;
 use gtk::prelude::WidgetExt;
 use gtk::prelude::IMContextExt;
-use gtk::prelude::EntryBufferExtManual;
 
 pub fn attach_screenshot_handlers(launcher: Rc<RefCell<Launcher>>, screenshot_icon: &mut gtk::Image) {
     let ecm = gtk::EventControllerMotion::builder()
@@ -22,7 +20,7 @@ pub fn attach_screenshot_handlers(launcher: Rc<RefCell<Launcher>>, screenshot_ic
 
     let screenshot_enter_handler = move |_: &gtk::EventControllerMotion,  _: f64, _: f64| {
         println!("Screenshot enter handler");
-        let mut launcher = launcher_cell_enter.borrow_mut();
+        let launcher = launcher_cell_enter.borrow_mut();
         let screenshot_button = launcher.screenshot_button.clone();
         drop(launcher);
         screenshot_button.grab_focus();
@@ -35,7 +33,7 @@ pub fn attach_screenshot_handlers(launcher: Rc<RefCell<Launcher>>, screenshot_ic
     let screenshot_click_handler = move |
         _gc: &gtk::GestureClick, _: i32, _: f64, _: f64| {
 
-        let mut launcher = launcher_cell_click.borrow_mut();
+        let launcher = launcher_cell_click.borrow_mut();
         let screenshot_button = launcher.screenshot_button.clone();
         drop(launcher);
         screenshot_button.grab_focus();
@@ -91,8 +89,8 @@ pub fn attach_window_key_handler(
                         let input_buffer = launcher.input_buffer.clone().unwrap();
                         let search_bar = launcher.search_bar.clone();
                         drop(launcher);
-                        let mut input_bufer = input_buffer.borrow();
-                        let mut pos = input_buffer.borrow().length() as i32;
+                        let input_bufer = input_buffer.borrow();
+                        let pos = input_buffer.borrow().length() as i32;
                         // search_bar.insert_text(&character.to_string(), &mut pos);
                     }
                 }

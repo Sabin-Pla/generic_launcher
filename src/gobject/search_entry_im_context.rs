@@ -20,33 +20,17 @@ mod inner {
     impl ObjectImpl for SearchEntryIMContext {}
     impl IMContextImpl for SearchEntryIMContext {
          fn retrieve_surrounding(&self) -> bool {
-            println!("?????");
-           /** let me = self.0.borrow_mut();
-            let context = me.context.borrow_mut();
-            let buffer =  &context.buf;
-            let obj = self.obj();
-           // obj.set_use_preedit(false);
-            obj.set_surrounding_with_selection("", 0, 0); */
-
             true
          }
 
-         fn commit(&self, _: &str) {
-            println!("commit");
-         }
+         fn commit(&self, _: &str) {}
 
-         fn preedit_start(&self) {
-            println!("PREDIT START");
-         }
+         fn preedit_start(&self) {}
 
-          fn filter_keypress(&self, _event: &gdk::Event) -> bool {
-                // Print something easy to spot
-                let (preedit, cursor_pos, idx) = self.preedit_string();
-                println!("IM: filter_keypress {:?}", (preedit, cursor_pos, idx));
-
-                // Claim the event so GTK will call the other IM methods
-                false
-            }
+        fn filter_keypress(&self, _event: &gdk::Event) -> bool {
+            // Claim the event so GTK will call the other IM methods
+            false
+        }
     }
 
 }

@@ -1,5 +1,4 @@
 pub mod hot_reload;
-use std::cell::RefMut;
 
 pub fn char_position(string: &'_ str, n: usize) -> usize {
 	let mut counter = (0, 0);

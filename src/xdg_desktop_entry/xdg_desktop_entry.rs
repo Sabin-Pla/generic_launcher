@@ -7,7 +7,7 @@ use gio::{AppInfo, AppLaunchContext, DesktopAppInfo};
 #[derive(Debug)]
 pub struct XdgDesktopEntry {
 	pub display_name: String,
-	pub keywords: Vec<String>,
+	pub _keywords: Vec<String>,
 	pub path: Box<Path>,
 	pub app_info: Rc<DesktopAppInfo>,
 }
@@ -39,7 +39,7 @@ impl XdgDesktopEntry {
 			display_name,
 			path: path.into(),
 			app_info: app_info.into(),
-			keywords
+			_keywords: keywords
 		})
 	}	
 

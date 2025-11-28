@@ -77,11 +77,11 @@ impl SearchResultBox {
         obj
     }
 
-    pub fn get(&self) -> Ref<SearchResultBoxWidget> {
+    pub fn get(&self) -> Ref<'_, SearchResultBoxWidget> {
         inner::SearchResultBox::from_obj(self).0.borrow()
     }
 
-    pub fn get_mut(&self) -> RefMut<SearchResultBoxWidget> {
+    pub fn get_mut(&self) -> RefMut<'_, SearchResultBoxWidget> {
         inner::SearchResultBox::from_obj(self).0.borrow_mut()
     }
 

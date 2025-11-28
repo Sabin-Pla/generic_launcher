@@ -1,11 +1,8 @@
 
 use gtk::glib::{self, Object};
 use gtk::subclass::prelude::*;
-use gtk::subclass::prelude::DerivedObjectProperties;
-use crate::{Arc, Mutex, Rc, RefCell};
-use crate::search;
+use crate::{Rc, RefCell};
 use crate::utils;
-use crate::launcher::Launcher;
 
 mod inner {
     use super::*;
@@ -50,9 +47,9 @@ mod inner {
             if let Some(n) = n_chars {
                 let end_idx = utils::char_position(&buf[position_idx..], n as usize);
                 println!("Draining {} {position_idx}..{end_idx} {n}", &buf);
-                &buf.drain(position_idx..position_idx+end_idx);
+                buf.drain(position_idx..position_idx+end_idx);
             } else {
-                &buf.drain(position_idx..);
+                buf.drain(position_idx..);
             }
             println!("deleted text: {position}");
             drop(buf);
@@ -73,7 +70,6 @@ glib::wrapper! {
     @extends gtk::EntryBuffer; 
 }
 
-use std::cell::Ref;
 impl SearchEntryBuffer {
     pub fn new() -> Self {
         Object::new::<Self>()

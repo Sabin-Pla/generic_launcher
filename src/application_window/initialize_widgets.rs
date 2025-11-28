@@ -1,12 +1,7 @@
-use crate::{Rc, RefCell, HashMap, Mutex};
+use crate::{Rc, RefCell};
 
-use gtk::PropagationPhase;
 use gtk::prelude::*;
-use gtk4_layer_shell::{KeyboardMode, LayerShell};
-
-use crate::launcher;
 use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};
-use crate::search::SearchContext;
 use crate::gobject::{ClockWidget, SearchResultBox, SearchResultBoxWidget, SearchEntryIMContext};
 use crate::{xdg_desktop_entry, SearchEntryBuffer};
 
@@ -17,7 +12,7 @@ pub fn root(application_window: &mut gtk::ApplicationWindow, launcher: Rc<RefCel
 	let root_style = root_box.style_context();
     root_style.add_class("root");
 	root_box.append(&topbar(launcher.clone(), icon_theme));
-    root_box.append(&search_bar(application_window, launcher.clone()));
+    root_box.append(&search_bar(launcher.clone()));
     root_box.append(&search_result_box(launcher));
     application_window.set_child(Some(&root_box));
 }
@@ -26,12 +21,14 @@ fn topbar(launcher: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::
 	let topbar = gtk::CenterBox::builder()
         .orientation(gtk::Orientation::Horizontal)
         .build();
-    topbar.set_center_widget(Some(&ClockWidget::new()));
+
+    let monitor_cell = launcher.borrow().current_monitor.clone();
+    topbar.set_center_widget(Some(&ClockWidget::new(monitor_cell)));
 	topbar.set_end_widget(Some(&screenshot_button(launcher, icon_theme)));
 	topbar
 }
 
-fn search_bar(application_window: &mut gtk::ApplicationWindow, launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
+fn search_bar(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
     let launcher_cell_search_entry = launcher_cell.clone();
     let mut launcher = launcher_cell.borrow_mut();
 

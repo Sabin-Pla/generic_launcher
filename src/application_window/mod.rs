@@ -1,13 +1,12 @@
 mod initialize_widgets;
 mod event_handler;
 
-use crate::Path;
+use crate::{Path,  Rc, RefCell};
 
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
-use gtk::PropagationPhase;
 
-use crate::{ApplicationSettings, Rc, RefCell};
+use crate::ApplicationSettings;
 use crate::launcher::Launcher;
 
 pub fn initialize(application: &gtk::Application) -> gtk::ApplicationWindow {

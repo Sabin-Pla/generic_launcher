@@ -1,13 +1,11 @@
+use std::rc::Rc;
 
 use gtk::glib::{self, Object};
 use gtk::subclass::prelude::*;
-use gtk::subclass::prelude::DerivedObjectProperties;
 use gtk::prelude::WidgetExt;
-use gtk::prelude::ObjectExt;
 use gtk::Widget;
-use glib::prelude::IsA;
-use gtk::subclass::layout_manager::LayoutManagerImplExt;
 use gtk::prelude::LayoutManagerExt;
+use std::cell::RefCell;
 
 mod inner {
     use super::*;
@@ -21,7 +19,7 @@ mod inner {
         type ParentType = gtk::Widget;
 
         fn new() -> Self {
-            Self(gtk::Label::new(Some("TEST")))
+            Self(gtk::Label::new(Some(&get_time_str())))
         }
     }
 
@@ -33,20 +31,20 @@ mod inner {
             let obj = self.obj();
             obj.set_layout_manager(Some(super::ClockLayout::new()));
         }
-
-    
     }
 
    	impl WidgetImpl for ClockWidget {}  
 
-    pub struct ClockLayout{
-        bin: gtk::BinLayout
+    pub struct ClockLayout {
+        bin: gtk::BinLayout,
+        pub current_monitor: RefCell<Rc<RefCell<Option<(i32, i32)>>>>,
     }
 
     impl Default for ClockLayout {
         fn default() -> Self {
             Self {
                 bin: gtk::BinLayout::new(),
+                current_monitor: Default::default(),
             }
         }
     }
@@ -58,7 +56,8 @@ mod inner {
         type ParentType = gtk::LayoutManager;
     }
 
-    impl ObjectImpl for ClockLayout {}
+    impl ObjectImpl for ClockLayout {
+    }
 
     impl LayoutManagerImpl for ClockLayout {
         fn measure(
@@ -71,7 +70,7 @@ mod inner {
         }
 
         fn allocate(&self, widget: &gtk::Widget, width: i32, height: i32, baseline: i32) {
-            println!("ALLOCATE CALLED {width} {height}");
+            println!("ALLOCATE CALLED {width} {height} {:?}", self.current_monitor);
             self.bin.allocate(widget, width, height, baseline);
         }
     }
@@ -90,9 +89,16 @@ glib::wrapper! {
 }
 
 impl ClockWidget {
-    pub fn new() -> Self {
+    pub fn new(monitor_cell: Rc<RefCell<Option<(i32, i32)>>>) -> Self {
         let obj = Object::new::<Self>();
         let clock_label = &inner::ClockWidget::from_obj(&obj).0; 
+        use gtk::prelude::Cast;
+        let mut layout_manager = obj.layout_manager()
+            .expect("ClockLayout not created for ClockWidget")
+            .downcast::<ClockLayout>()
+            .expect("ClockLayout expected, got invalid LayoutManager class");
+
+        layout_manager.set_monitor_cell(monitor_cell);
         clock_label.set_parent(&obj);
         setup_on_clock_tick(clock_label);
         obj.set_child_visible(true);
@@ -100,17 +106,29 @@ impl ClockWidget {
     }
 }
 
+
+
 impl ClockLayout {
     pub fn new() -> Self {
-        let obj = Object::new::<Self>();
-        obj
+        glib::Object::new::<Self>()
     }
+
+    pub fn set_monitor_cell(&mut self, monitor_cell: Rc<RefCell<Option<(i32, i32)>>>) {
+        println!("set mon cell{:?}", &monitor_cell);
+        use std::borrow::BorrowMut;
+        let mut inner = inner::ClockLayout::from_obj(self);
+        let mut inner_cell = inner.borrow_mut().current_monitor.borrow_mut();
+        *inner_cell = monitor_cell;
+    } 
+}
+
+fn get_time_str() -> String {
+    let date_time  =  chrono::offset::Local::now();
+    format!("{}", date_time.format("%a %d/%B %Y %H:%M:%S"))
 }
 
 fn set_clock_time(clock: &gtk::Label) {
-    let date_time  =  chrono::offset::Local::now();
-    let time_string = &format!("{}", date_time.format("%a %d/%B %Y %H:%M:%S"));
-    clock.set_text(time_string);
+    clock.set_text(&get_time_str());
 }
 
 fn calculate_clock_padding(clock: &gtk::Label) -> i32 {

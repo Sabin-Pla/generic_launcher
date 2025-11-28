@@ -1,7 +1,5 @@
 use super::*;
 use crate::xdg_desktop_entry::XdgDesktopEntry;
-use crate::utils;
-use crate::launcher;
 use crate::launcher::{RESULT_ENTRY_COUNT, Launcher};
 
 fn get_search_score_for(entry: &XdgDesktopEntry, query_string: &str) -> usize {

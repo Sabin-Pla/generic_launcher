@@ -45,7 +45,7 @@ fn pipe_writer_thread(
 
 pub fn attach(css_path: &Path, launcher_cell: Rc<RefCell<Launcher>>) {
     use gtk::prelude::FileExt;
-    let mut launcher = launcher_cell.borrow_mut();
+    let launcher = launcher_cell.borrow_mut();
 	let css_path = launcher.css_provider.clone().unwrap().0;
     let css_path =  css_path.path().expect("Error getting pathbuf for css provider");
     let mut pipe_path = css_path.to_path_buf().clone();
@@ -61,7 +61,6 @@ pub fn attach(css_path: &Path, launcher_cell: Rc<RefCell<Launcher>>) {
         let path = fifo_path.clone();
         let p = fifo_path.as_ptr() as *const i8;
         mkfifo(p, 0o666);
-        let p = std::sync::Arc::new(std::sync::Mutex::new(p));
         let launcher_cell_pipe = launcher_cell.clone();
         let open_pipe = move |flags| {
             let fd = libc::open(path.as_ptr() as *const i8, flags);
@@ -73,22 +72,19 @@ pub fn attach(css_path: &Path, launcher_cell: Rc<RefCell<Launcher>>) {
         };
         let pipe_box = Box::new(open_pipe.clone());
 
-        use gtk::prelude::FileExt;
         let thread_writer_wrapper = move || {
             pipe_writer_thread(&css_path, pipe_box)
         };
 
-        match glib::ThreadPool::shared(Some(1)) {
+        let threadpool_result = match glib::ThreadPool::shared(Some(1)) {
             Err(..) => todo!("fix app crashing when unable to detect modifying css file"),
-            Ok(threadpool) => {
-                threadpool.push(move || {
-                    unsafe {
-                        std::thread::spawn(thread_writer_wrapper)
-                    }
-                });
-            }
+            Ok(threadpool) => threadpool.push(move || std::thread::spawn(thread_writer_wrapper) )
         };
 
+        if !threadpool_result.is_ok() {
+            println!("Failed to create thread_writer_wrapper");
+            return;
+        }
 
         let (fd, buffer) = open_pipe(O_RDONLY);
         glib::source::unix_fd_add_local(

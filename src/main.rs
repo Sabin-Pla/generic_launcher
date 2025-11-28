@@ -10,10 +10,7 @@ mod xdg_desktop_entry;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::ffi::OsStr;
-pub use std::collections::HashMap;
 pub use std::path::{Path, PathBuf};
 pub use std::vec::Vec;
 pub use std::time::Duration;
@@ -48,12 +45,18 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
                 drop(launcher);
     			application_window.set_visible(false);
                 let mut launcher = launcher_cell.borrow_mut();
+                *launcher.current_monitor.borrow_mut() = None;
     			launcher.state = State::Hidden;
 			},
 			State::Hidden => { 
                 application_window.set_visible(true);
-
                 let surface = application_window.surface().unwrap();
+                let display = gtk::prelude::WidgetExt::display(application_window);
+                let display = display.monitor_at_surface(&surface);
+                let rect =  display.unwrap().geometry();
+                let (monitor_width, monitor_height) = (rect.width(), rect.height());
+                *launcher.current_monitor.borrow_mut() = Some((monitor_width, monitor_height));
+
                 launcher.clear_search_results();
                 let search_bar = launcher.search_bar.clone();
                 drop(launcher);
@@ -69,7 +72,7 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
 unsafe fn startup(application: &gtk::Application, launcher_cell: Rc<RefCell<Launcher>>) {
     let application_settings = ApplicationSettings::load();
     println!("Loading application settings: {:?}", application_settings);
-    std::fs::create_dir(application_settings.user_config.screenshots_destination_directory.clone());
+    let _ = std::fs::create_dir(application_settings.user_config.screenshots_destination_directory.clone());
    
     let mut application_window = application_window::initialize(application);
     application_window::populate(&mut application_window, &application_settings, launcher_cell.clone());
@@ -78,7 +81,7 @@ unsafe fn startup(application: &gtk::Application, launcher_cell: Rc<RefCell<Laun
     application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
 
     let mut launcher = launcher_cell.borrow_mut();
-    let css_file = Arc::new(application_settings.css_file);
+    let css_file = std::sync::Arc::new(application_settings.css_file);
     let provider = gtk::CssProvider::new();
     gtk::style_context_add_provider_for_display(
         &gdk::Display::default().expect("Could not connect to a display."),
@@ -96,9 +99,9 @@ unsafe fn startup(application: &gtk::Application, launcher_cell: Rc<RefCell<Laun
     WINDOW.replace(Some(application_window));
 }
 
-fn main()  -> gtk::glib::ExitCode {
+fn main()  -> Result<gtk::glib::ExitCode, glib::error::BoolError> {
     unsafe {
-        gtk::init();
+        gtk::init()?;
         let application = gtk::Application::new(
             Some("www.generic_launcher_example"), Default::default());
         gtk::prelude::GtkApplicationExt::set_accels_for_action(
@@ -111,6 +114,6 @@ fn main()  -> gtk::glib::ExitCode {
         application.connect_activate(move |app| {
             activate(app, launcher.clone())
         });
-        application.run()
+        Ok(application.run())
     }
 }   
