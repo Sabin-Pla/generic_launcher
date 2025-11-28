@@ -14,18 +14,17 @@
 @define-color box-outline-color @theme_bg_color;
 
 window {
-	padding: 10px;
-	border: 1px solid grey;
+	padding: 0.7em;
  	background-color: @main-color;
  	opacity: 90%;
- 	border-radius: 20px;
+ 	border-radius: 1em;
 }
 
 
 .screenshot-button {
 	color: @button-inactive;
-	margin-top: 10px;
-	margin-right: 10px;
+	margin-top: 1em;
+	margin-right: 1em;
 }
 
 .screenshot-button:focus {
@@ -33,21 +32,21 @@ window {
 }
 
 .clock {
-	margin-top: 10px;
-	font-size: 22px;
+	margin-top: 0.4em;
+	font-size: 1.4em;
 	color: @text-color;
 	background-color: shade(@result-unselected, 0.94);
-	border-radius: 2px;
+	border-radius: 0.2em;
 }
 
 .input-field {
-	font-size: 24px;
+	font-size: 1.6em;
 	background-color: shade(@main-color, 0.8);
-	min-width: 800px;
-	padding-top: 6px;
-	padding-bottom: 6px;
-	outline: @box-outline-color solid 2px;
-	border-radius: 9px;
+	min-width: 25em;
+	padding-top: 0.3em;
+	padding-bottom: 0.3em;
+	outline: @box-outline-color solid 0.02em;
+	border-radius: 0.5em;
 }
 
 .result-box {
@@ -64,14 +63,14 @@ window {
 
 .result-box:focus {
 	transition: 0.03s linear;
-	outline: 3px solid shade(@result-selected, 0.3);
+	outline: 0.2em solid shade(@result-selected, 0.3);
 	background-image: none;
 	background-color: @result-selected;
 	color: @result-selected-text;
 }
 
 .root {
-	border-top: 1px solid @accent-color;
-	border-bottom: 1px solid @accent-color;
-	padding-bottom: 10px;
+	border-top: 0.1em solid @accent-color;
+	border-bottom: 0.1em solid @accent-color;
+	padding-bottom: 1em;
 }

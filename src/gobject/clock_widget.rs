@@ -62,64 +62,30 @@ mod inner {
     }
 
     impl ClockLayout {
-        fn get_padding_values(
-            widget: &gtk::Widget,
-            widget_width: i32,
-            widget_height: i32,
-            entry: hash_map::VacantEntry<(i32, i32), (i32, i32)>,
-        ) -> i32 {
-            let clock_widget = widget
-                .clone()
-                .downcast::<super::ClockWidget>()
-                .expect("ClockLayout allocate() called for non-clock widget");
-            let clock_widget = inner::ClockWidget::from_obj(&clock_widget);
-            let clock_label = clock_widget.0.clone();
-            println!("calculate_clock_padding width {widget_width}");
-
-            let num_chars = clock_label.text().len();
-            let padding = ((widget_width / num_chars as i32) as f32 * 2.3) as i32;
-            println!("Padding {padding} | new size request {}", 2 * padding + widget_width);
-            widget.set_size_request(2 * padding + widget_width, widget_height);
-            entry.insert((padding, padding + widget_width));
-            padding
-        }
-
         fn check_padding_map(
             padding_size_map: &mut HashMap<(i32, i32), (i32, i32)>,
-            bin: &gtk::BinLayout,
             current_dimensions: (i32, i32),
-            widget: &gtk::Widget,
-            widget_width: i32,
-            widget_height: i32,
-            baseline: i32,
+            width: i32,
+            pango_font_size: i32,
+            num_chars: i32
         ) -> Option<i32> {
             match Self::get_entry(padding_size_map, current_dimensions) {
                 hash_map::Entry::Occupied(entry) => {
                     let val = entry.get().1;
-                    if widget.width() != val {
-                        println!("Actual clock width {} | expected clock width {val}", widget.width());
+                    if pango_font_size != val {
+                        println!("Actual clock text size {pango_font_size} | expected {val}");
                         println!("(css-reload?) re-sizing clock.");
                         drop(entry);
                         padding_size_map.clear();
-                        return Self::check_padding_map(
-                            padding_size_map,
-                            bin,
-                            current_dimensions,
-                            widget,
-                            widget_width,
-                            widget_height,
-                            baseline,
-                        );
+                        return Self::check_padding_map(padding_size_map, current_dimensions, width, pango_font_size, num_chars);
                     }
-                    bin.allocate(widget, widget_width, widget_height, baseline);
                     None
                 }
-                hash_map::Entry::Vacant(entry) => Some(Self::get_padding_values(
-                    widget,
-                    widget_width,
-                    widget_height,
-                    entry,
-                )),
+                hash_map::Entry::Vacant(entry) => {
+                    let padding = ((width / num_chars) as f32 * 2.3) as i32;
+                    entry.insert((padding, pango_font_size));
+                    Some(padding)
+                },
             }
         }
 
@@ -150,35 +116,40 @@ mod inner {
             let current_dimensions =
                 current_monitor.expect("ClockLayout could not determine monitor dimensions");
 
+            let clock_widget = widget
+                .clone()
+                .downcast::<super::ClockWidget>()
+                .expect("ClockLayout allocate() called for non-clock widget");
+            let clock_widget = inner::ClockWidget::from_obj(&clock_widget);
+            let clock_label = clock_widget.0.clone();
+            let pango_font_size = clock_label.pango_context().font_description().unwrap().size(); 
+            let num_chars = clock_label.text().len() as i32;
+            let text_width = clock_label.layout().extents().1.width() / gtk::pango::SCALE;
+
             let padding = match Self::check_padding_map(
                 &mut *self.padding_size_map.borrow_mut(),
-                &self.bin,
                 current_dimensions,
-                widget,
-                width,
-                height,
-                baseline,
+                text_width,
+                pango_font_size,
+                num_chars
             ) {
-                Some(p) => p,
-                None => return,
+                Some(padding) => {
+                    widget.set_size_request(2 * padding + text_width, height);
+                    padding
+                },
+                None => {
+                    self.bin.allocate(widget, width, height, baseline);
+                    return
+                },
             };
 
             match &self.css_provider {
-                Some(css_provider) => {
-                    println!("removing style context provider");
-                    gtk::style_context_remove_provider_for_display(
-                        &gdk::Display::default().expect("Could not connect to a display."),
-                        css_provider,
-                    );
-                }
+                Some(css_provider) => gtk::style_context_remove_provider_for_display(&widget.display(), css_provider),
                 None => {
-                    println!("Adding style context provider");
                     let provider = gtk::CssProvider::new();
-                    provider.load_from_string(&format!(
-                        ".clock {{ padding-left: {padding}px; padding-right: 0px; }}"
-                    ));
+                    provider.load_from_string(&format!(".clock {{ padding-left: {padding}px; padding-right: 0px; }}"));
                     gtk::style_context_add_provider_for_display(
-                        &gdk::Display::default().expect("Could not connect to a display."),
+                        &widget.display(),
                         &provider,
                         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
                     );
