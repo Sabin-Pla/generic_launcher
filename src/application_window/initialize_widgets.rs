@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::gobject::{ClockWidget, SearchEntryIMContext, SearchResultBox, SearchResultBoxWidget};
+use crate::gobject::{ClockWidget, SearchEntryIMContext, SearchResultBox};
 use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};
 use crate::{SearchEntryBuffer, xdg_desktop_entry};
 use gtk::prelude::*;
@@ -77,8 +77,7 @@ fn search_result_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
     let mut result_frames: Vec<SearchResultBox> = Vec::new();
 
     for i in 0..RESULT_ENTRY_COUNT {
-        let result_box = SearchResultBoxWidget::from(i);
-        let mut result_box = SearchResultBox::new(result_box);
+        let mut result_box = SearchResultBox::new(i);
         result_box.set_focusable(true);
         result_box.set_can_focus(true);
         result_box.set_focus_on_click(true);

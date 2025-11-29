@@ -7,13 +7,13 @@ use gtk::Buildable;
 use gtk::ConstraintTarget;
 use gtk::subclass::prelude::*;
 
-pub struct SearchResultBoxWidget {
+pub struct SearchResultBoxData {
     pub idx_in_container: usize,
     pub idx_in_xdg_entries_vector: usize,
     pub idx_in_search_result_vector: usize,
 }
 
-impl SearchResultBoxWidget {
+impl SearchResultBoxData {
     pub fn new() -> Self {
         Self {
             idx_in_container: 0,
@@ -42,7 +42,7 @@ impl SearchResultBoxWidget {
 mod inner {
     use super::*;
 
-    pub struct SearchResultBox(pub RefCell<SearchResultBoxWidget>);
+    pub struct SearchResultBox(pub RefCell<SearchResultBoxData>);
 
     impl ObjectImpl for SearchResultBox {}
     impl WidgetImpl for SearchResultBox {
@@ -59,7 +59,7 @@ mod inner {
         type ParentType = gtk::Button;
 
         fn new() -> Self {
-            Self(SearchResultBoxWidget::new().into())
+            Self(SearchResultBoxData::new().into())
         }
     }
 }
@@ -70,17 +70,18 @@ glib::wrapper! {
 }
 
 impl SearchResultBox {
-    pub fn new(data: SearchResultBoxWidget) -> Self {
+    pub fn new(box_idx: usize) -> Self {
         let obj = gtk::glib::Object::new::<Self>();
-        *inner::SearchResultBox::from_obj(&obj).0.borrow_mut() = data;
+        let result_box_data = SearchResultBoxData::from(box_idx);
+        *inner::SearchResultBox::from_obj(&obj).0.borrow_mut() = result_box_data;
         obj
     }
 
-    pub fn get(&self) -> Ref<'_, SearchResultBoxWidget> {
+    pub fn get(&self) -> Ref<'_, SearchResultBoxData> {
         inner::SearchResultBox::from_obj(self).0.borrow()
     }
 
-    pub fn get_mut(&self) -> RefMut<'_, SearchResultBoxWidget> {
+    pub fn get_mut(&self) -> RefMut<'_, SearchResultBoxData> {
         inner::SearchResultBox::from_obj(self).0.borrow_mut()
     }
 
