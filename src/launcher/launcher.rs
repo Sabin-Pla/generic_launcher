@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use gtk::prelude::*;
 
 use super::State;
-use crate::gobject::{SearchEntryBuffer, SearchResultBox};
+use crate::gobject::{SearchEntryBuffer, SearchResultContainer, SearchResultBox};
 use crate::search;
 use crate::search::SearchContext;
 use crate::xdg_desktop_entry::XdgDesktopEntry;
@@ -15,7 +15,7 @@ use crate::launcher::RESULT_ENTRY_COUNT;
 pub struct Launcher {
     pub state: State,
     pub css_provider: Option<(std::sync::Arc<gio::File>, gtk::CssProvider)>,
-    pub search_result_frames: Vec<SearchResultBox>,
+    pub search_result_container: SearchResultContainer,
     pub selected_search_idx: Option<isize>,
     pub search_bar: Rc<gtk::Entry>,
     pub user_desktop_files: Option<Rc<Vec<XdgDesktopEntry>>>,
@@ -33,7 +33,7 @@ impl Launcher {
         Launcher {
             state: State::NotStarted,
             css_provider: None,
-            search_result_frames: vec![],
+            search_result_container: SearchResultContainer::new(),
             selected_search_idx: None,
             search_bar: Default::default(),
             user_desktop_files: None,
@@ -58,10 +58,8 @@ impl Launcher {
     }
 
     pub fn clear_search_results(&mut self) {
-        for result_box in &self.search_result_frames {
-            result_box.set_focusable(false);
-            result_box.set_visible(false);
-        }
+         // return;
+        self.search_result_container.hide();
     }
 
     pub fn launch_selected_application(&mut self) {
@@ -71,13 +69,13 @@ impl Launcher {
                 self.custom_launchers.clone().unwrap()[0].launch(None);
                 return;
             }
-            Some(0) | None => self.search_result_frames[0].get(),
-            Some(idx) => self.search_result_frames[idx as usize].get(),
+            Some(0) | None => self.search_result_container.index(0),
+            Some(idx) => self.search_result_container.index(idx as usize),
         };
-        self.user_desktop_files.clone().unwrap()[search_result_box.idx_in_xdg_entries_vector].launch(None);
+        self.user_desktop_files.clone().unwrap()[search_result_box.get().idx_in_xdg_entries_vector].launch(None);
     }
 
-    pub fn set_search_frame(
+    pub fn set_search_result_box(
         &mut self,
         desktop_idx: usize,
         container_idx: usize,
@@ -85,12 +83,12 @@ impl Launcher {
     ) {
         let desktop_entry = &self.user_desktop_files.clone().unwrap()[desktop_idx];
         let display_name = desktop_entry.display_name.clone();
-        let result_box = &mut self.search_result_frames[container_idx];
-        gtk::prelude::ButtonExt::set_label(result_box, &display_name);
-        result_box.set_desktop_idx(desktop_idx);
-        result_box.set_idx_in_search_result_vector(search_result_idx);
-        result_box.set_focusable(true);
-        result_box.set_visible(true);
+        let search_result_box = &mut self.search_result_container.index(container_idx);
+        gtk::prelude::ButtonExt::set_label(search_result_box, &display_name);
+        search_result_box.set_desktop_idx(desktop_idx);
+        search_result_box.set_idx_in_search_result_vector(search_result_idx);
+        search_result_box.set_focusable(true);
+        search_result_box.set_visible(true);
         let app_info = desktop_entry.app_info.clone();
         if app_info.has_key("Icon") {
             let icon_name = app_info.locale_string("Icon").unwrap();
@@ -104,6 +102,7 @@ impl Launcher {
             root.attach(&image, 1, 1, 3, 20);
             // result_box.set_icon(&icon_name);
         }
+        let search_result_box = &mut self.search_result_container.index(container_idx);
     }
 
     pub fn reload_css(&mut self) {
@@ -124,9 +123,8 @@ pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
         drop(launcher);
         hide_window(launcher_cell)
     } else {
-        let result_box = launcher.search_result_frames[0].clone();
-        drop(launcher);
-        result_box.grab_focus();
+        let search_result_box = launcher.search_result_container.index(0);
+        search_result_box.grab_focus();
     };
 }
 
@@ -146,7 +144,7 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
     const END_IDX: isize = (RESULT_ENTRY_COUNT - 1) as isize;
     match launcher.selected_search_idx {
         Some(END_IDX) => {
-            let next_search_result_idx = launcher.search_result_frames[RESULT_ENTRY_COUNT - 1]
+            let next_search_result_idx = launcher.search_result_container.index(RESULT_ENTRY_COUNT - 1)
                 .get_idx_in_search_result_vector()
                 + 1;
             let next_result_desktop_idx = search::get_xdg_index_from_last_search_result_idx(
@@ -157,13 +155,13 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
                 Some(idx) => idx,
                 None => return,
             };
-            for i in 0..launcher.search_result_frames.len() - 1 {
-                let next_box = &launcher.search_result_frames[i + 1];
+            for i in 0..launcher.search_result_container.len() - 1 {
+                let next_box = &launcher.search_result_container.index(i + 1);
                 let search_result_idx = next_box.get_idx_in_search_result_vector();
                 let desktop_idx = next_box.get_desktop_idx();
-                launcher.set_search_frame(desktop_idx, i, search_result_idx);
+                launcher.set_search_result_box(desktop_idx, i, search_result_idx);
             }
-            launcher.set_search_frame(
+            launcher.set_search_result_box(
                 next_result_desktop_idx,
                 RESULT_ENTRY_COUNT - 1,
                 next_search_result_idx,
@@ -194,8 +192,7 @@ pub fn handle_result_box_hovered(launcher: Rc<RefCell<Launcher>>, hovered_idx: u
     launcher.hovered_idx = hovered_idx;
     println!("launcher handle hover: {hovered_idx}");
     launcher.selected_search_idx = Some(hovered_idx as isize);
-    let result_box = launcher.search_result_frames[hovered_idx].clone();
-    drop(launcher);
+    let search_result_box = launcher.search_result_container.index(hovered_idx);
     println!("refocusing result box {hovered_idx}");
-    result_box.grab_focus();
+    search_result_box.grab_focus();
 }

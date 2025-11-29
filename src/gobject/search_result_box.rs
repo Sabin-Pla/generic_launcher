@@ -7,6 +7,7 @@ use gtk::Buildable;
 use gtk::ConstraintTarget;
 use gtk::subclass::prelude::*;
 
+#[derive(Debug)]
 pub struct SearchResultBoxData {
     pub idx_in_container: usize,
     pub idx_in_xdg_entries_vector: usize,

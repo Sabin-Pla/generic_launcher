@@ -46,7 +46,7 @@ pub fn display_search_results(launcher: &mut Launcher, results: SearchResult) {
         if counter >= RESULT_ENTRY_COUNT {
             break;
         }
-        launcher.set_search_frame(*desktop_idx, counter, idx);
+        launcher.set_search_result_box(*desktop_idx, counter, idx);
         counter += 1;
     }
 }

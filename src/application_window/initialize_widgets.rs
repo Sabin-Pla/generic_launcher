@@ -10,14 +10,18 @@ use super::event_handler;
 
 pub fn root(
     application_window: &mut gtk::ApplicationWindow,
-    launcher: Rc<RefCell<Launcher>>,
+    launcher_cell: Rc<RefCell<Launcher>>,
     icon_theme: &gtk::IconTheme,
 ) {
     let root_box = gtk::Box::new(gtk::Orientation::Vertical, 9);
     root_box.add_css_class("root");
-    root_box.append(&topbar(launcher.clone(), icon_theme));
-    root_box.append(&search_bar(launcher.clone()));
-    root_box.append(&search_result_box(launcher));
+    root_box.append(&topbar(launcher_cell.clone(), icon_theme));
+    root_box.append(&search_bar(launcher_cell.clone()));
+    let launcher = launcher_cell.borrow();
+    let mut search_result_container = launcher.search_result_container.clone();
+    drop(launcher);
+    search_result_container.attach_result_box_handlers(event_handler::attach_result_box_handlers, launcher_cell);
+    root_box.append(&search_result_container);
     application_window.set_child(Some(&root_box));
 }
 
@@ -69,30 +73,6 @@ fn search_bar(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
     let mut launcher = launcher_cell.borrow_mut();
     launcher.clear_search_results();
     search_bar.clone()
-}
-
-fn search_result_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
-    let result_box = gtk::Box::new(gtk::Orientation::Vertical, 5);
-
-    let mut result_frames: Vec<SearchResultBox> = Vec::new();
-
-    for i in 0..RESULT_ENTRY_COUNT {
-        let mut result_box = SearchResultBox::new(i);
-        result_box.set_focusable(true);
-        result_box.set_can_focus(true);
-        result_box.set_focus_on_click(true);
-        gtk::prelude::ButtonExt::set_label(&result_box, &"");
-        result_box.add_css_class("result-box");
-        event_handler::attach_result_box_handlers(launcher_cell.clone(), &mut result_box, i);
-        result_frames.push(result_box.into());
-    }
-
-    for f in &result_frames {
-        result_box.append(f);
-    }
-    let mut launcher = launcher_cell.borrow_mut();
-    launcher.search_result_frames = result_frames;
-    result_box
 }
 
 fn screenshot_button(

@@ -73,6 +73,11 @@ window {
 	color: @result-selected-text;
 }
 
+.result-container {
+}
+
+.scroll-bar {}
+
 .root {
 	border-top: 0.1em solid @accent-color;
 	border-bottom: 0.1em solid @accent-color;

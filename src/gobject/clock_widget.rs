@@ -27,10 +27,7 @@ mod inner {
     impl ObjectImpl for ClockWidget {
         fn constructed(&self) {
             self.parent_constructed();
-
-            // Give this widget a layout manager
-            let obj = self.obj();
-            obj.set_layout_manager(Some(super::ClockLayout::new()));
+            self.obj().set_layout_manager(Some(super::ClockLayout::new()));
         }
     }
 
