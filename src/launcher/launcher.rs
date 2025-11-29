@@ -107,7 +107,6 @@ impl Launcher {
     }
 
     pub fn reload_css(&mut self) {
-        // todo!("Call gtk4::style_context_remove_provider_for_display");
         println!("reloading css...");
         match &self.css_provider {
             Some((file, provider)) => {
