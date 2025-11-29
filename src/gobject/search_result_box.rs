@@ -5,7 +5,6 @@ use gtk::Accessible;
 use gtk::Actionable;
 use gtk::Buildable;
 use gtk::ConstraintTarget;
-use gtk::glib::{self, Object};
 use gtk::subclass::prelude::*;
 
 pub struct SearchResultBoxWidget {
@@ -72,7 +71,7 @@ glib::wrapper! {
 
 impl SearchResultBox {
     pub fn new(data: SearchResultBoxWidget) -> Self {
-        let obj = Object::new::<Self>();
+        let obj = gtk::glib::Object::new::<Self>();
         *inner::SearchResultBox::from_obj(&obj).0.borrow_mut() = data;
         obj
     }

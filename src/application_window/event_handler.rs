@@ -1,12 +1,15 @@
-use crate::gobject::{SearchEntryIMContext, SearchResultBox};
-use crate::launcher;
-use crate::launcher::Launcher;
-use crate::search;
-use crate::{Rc, RefCell};
+use std::rc::Rc;
+use std::cell::RefCell;
+
 use gtk::PropagationPhase;
 use gtk::prelude::EditableExt;
 use gtk::prelude::IMContextExt;
 use gtk::prelude::WidgetExt;
+
+use crate::gobject::{SearchEntryIMContext, SearchResultBox};
+use crate::launcher;
+use crate::launcher::Launcher;
+use crate::search;
 
 pub fn attach_screenshot_handlers(
     launcher: Rc<RefCell<Launcher>>,

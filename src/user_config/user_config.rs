@@ -1,5 +1,7 @@
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
+
 use super::KeyboardMode;
-use crate::{OsStr, Path, PathBuf};
 
 #[derive(Debug)]
 pub struct UserConfig {

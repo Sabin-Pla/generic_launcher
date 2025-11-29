@@ -1,4 +1,3 @@
-use gtk::glib::{self, Object};
 use gtk::subclass::prelude::*;
 
 mod inner {
@@ -41,7 +40,7 @@ glib::wrapper! {
 
 impl SearchEntryIMContext {
     pub fn new() -> Self {
-        let obj = Object::new::<Self>();
+        let obj = gtk::glib::Object::new::<Self>();
         obj
     }
 }

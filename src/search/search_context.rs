@@ -1,6 +1,6 @@
 use crate::search::SearchResult;
 use crate::xdg_desktop_entry::XdgDesktopEntry;
-use crate::{Rc, Vec};
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct SearchContext {

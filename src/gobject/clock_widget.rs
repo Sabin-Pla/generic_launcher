@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, hash_map};
 use std::rc::Rc;
 
-use gtk::glib::{self, Object};
+use gtk::glib::{Object};
 use gtk::prelude::{Cast, LayoutManagerExt, WidgetExt};
 use gtk::subclass::prelude::*;
 

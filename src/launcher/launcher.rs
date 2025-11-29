@@ -1,3 +1,6 @@
+use std::rc::Rc;
+use std::cell::RefCell;
+
 use gtk::prelude::*;
 
 use super::State;
@@ -5,7 +8,6 @@ use crate::gobject::{SearchEntryBuffer, SearchResultBox};
 use crate::search;
 use crate::search::SearchContext;
 use crate::xdg_desktop_entry::XdgDesktopEntry;
-use crate::{Rc, RefCell};
 
 use crate::WINDOW;
 use crate::launcher::RESULT_ENTRY_COUNT;

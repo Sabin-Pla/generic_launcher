@@ -1,7 +1,9 @@
 mod event_handler;
 mod initialize_widgets;
 
-use crate::{Path, Rc, RefCell};
+use std::rc::Rc;
+use std::cell::RefCell;
+use std::path::Path;
 
 use gtk::prelude::*;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};

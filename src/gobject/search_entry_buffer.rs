@@ -1,7 +1,10 @@
-use crate::utils;
-use crate::{Rc, RefCell};
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use gtk::glib::{self, Object};
 use gtk::subclass::prelude::*;
+
+use crate::utils;
 
 mod inner {
     use super::*;

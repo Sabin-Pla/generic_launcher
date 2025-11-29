@@ -1,4 +1,6 @@
-use crate::{Path, Rc, RefCell};
+use std::rc::Rc;
+use std::cell::RefCell;
+use std::path::Path;
 use std::os::raw::c_char;
 
 use inotify::{Inotify, WatchMask};

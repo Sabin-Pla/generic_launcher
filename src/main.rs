@@ -8,10 +8,7 @@ mod xdg_desktop_entry;
 
 use std::cell::RefCell;
 use std::ffi::OsStr;
-pub use std::path::{Path, PathBuf};
 use std::rc::Rc;
-pub use std::time::Duration;
-pub use std::vec::Vec;
 
 use crate::launcher::Launcher;
 
@@ -36,6 +33,7 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
         let application_window = application_window.as_mut().unwrap();
         match launcher.state {
             State::NotStarted => panic!("cannot activate; not started"),
+
             State::Visible => {
                 println!("Hiding launcher");
                 drop(launcher);
@@ -43,9 +41,12 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
                 let mut launcher = launcher_cell.borrow_mut();
                 *launcher.current_monitor.borrow_mut() = None;
                 launcher.state = State::Hidden;
-            }
+            },
+            
             State::Hidden => {
                 application_window.set_visible(true);
+
+                // set monitor dimensions
                 let surface = application_window.surface().unwrap();
                 let display = gtk::prelude::WidgetExt::display(application_window);
                 let display = display.monitor_at_surface(&surface);
@@ -59,6 +60,7 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
                 search_bar.set_text("");
                 search_bar.grab_focus();
                 let mut launcher = launcher_cell.borrow_mut();
+
                 launcher.state = State::Visible;
             }
         }
