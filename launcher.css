@@ -49,6 +49,10 @@ window {
 	border-radius: 0.5em;
 }
 
+.scroll-bar {
+	width: 1em;
+}
+
 .result-box {
 	background-image: none;
 	background-color: @result-unselected;
