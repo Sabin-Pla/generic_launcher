@@ -126,17 +126,16 @@ pub fn attach_result_box_handlers(
 
     let launcher_cell_gc = launcher_cell.clone();
 
+    let gesture_click_result_box = result_box.clone();
     gesture_click.connect_pressed(move |_, _, _, _| {
         println!("gesture_click handler {frame_idx}");
         let mut launcher = launcher_cell_gc.borrow_mut();
-        if launcher.search_result_frames[frame_idx].has_focus() {
+        if gesture_click_result_box.has_focus() {
             launcher.launch_selected_application();
-            drop(launcher);
         } else {
-            let frame = launcher.search_result_frames[frame_idx].clone();
-            drop(launcher);
-            frame.grab_focus();
+            gesture_click_result_box.grab_focus();
         }
+        drop(launcher);
         launcher::hide_window(launcher_cell_gc.clone());
     });
 

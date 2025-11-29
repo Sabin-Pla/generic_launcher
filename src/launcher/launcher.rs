@@ -66,7 +66,7 @@ impl Launcher {
 
     pub fn launch_selected_application(&mut self) {
         println!("launch_selected_application()");
-        let idx = match self.selected_search_idx {
+        let search_result_box = match self.selected_search_idx {
             Some(-1) => {
                 self.custom_launchers.clone().unwrap()[0].launch(None);
                 return;
@@ -74,7 +74,7 @@ impl Launcher {
             Some(0) | None => self.search_result_frames[0].get(),
             Some(idx) => self.search_result_frames[idx as usize].get(),
         };
-        self.user_desktop_files.clone().unwrap()[idx.idx_in_xdg_entries_vector].launch(None);
+        self.user_desktop_files.clone().unwrap()[search_result_box.idx_in_xdg_entries_vector].launch(None);
     }
 
     pub fn set_search_frame(

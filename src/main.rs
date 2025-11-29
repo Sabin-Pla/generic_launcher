@@ -44,6 +44,7 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
             },
             
             State::Hidden => {
+                println!("Showing launcher");
                 application_window.set_visible(true);
 
                 // set monitor dimensions
@@ -59,8 +60,8 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
                 drop(launcher);
                 search_bar.set_text("");
                 search_bar.grab_focus();
+                
                 let mut launcher = launcher_cell.borrow_mut();
-
                 launcher.state = State::Visible;
             }
         }
