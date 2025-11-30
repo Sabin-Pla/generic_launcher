@@ -192,7 +192,6 @@ impl ClockLayout {
     }
 
     pub fn set_monitor_cell(&mut self, monitor_cell: Rc<RefCell<Option<(i32, i32)>>>) {
-        println!("set mon cell{:?}", &monitor_cell);
         use std::borrow::BorrowMut;
         let mut inner = inner::ClockLayout::from_obj(self);
         let mut inner_cell = inner.borrow_mut().current_monitor.borrow_mut();

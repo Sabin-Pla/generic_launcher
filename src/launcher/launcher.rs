@@ -1,7 +1,7 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
-use gtk::prelude::*;
+use gtk::prelude::{EntryExt, FileExt, GridExt,  WidgetExt};
 
 use super::State;
 use crate::gobject::{SearchEntryBuffer, SearchResultContainer, SearchResultBox};
@@ -192,7 +192,8 @@ pub fn handle_result_box_hovered(launcher: Rc<RefCell<Launcher>>, hovered_idx: u
     launcher.hovered_idx = hovered_idx;
     println!("launcher handle hover: {hovered_idx}");
     launcher.selected_search_idx = Some(hovered_idx as isize);
-    let search_result_box = launcher.search_result_container.index(hovered_idx);
-    println!("refocusing result box {hovered_idx}");
+    let search_result_box = launcher.search_result_container.index(hovered_idx).clone();
+    drop(launcher);
+    println!("refocusing result box {hovered_idx} {:?}", &search_result_box);
     search_result_box.grab_focus();
 }

@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use crate::gobject::{ClockWidget, SearchEntryIMContext, SearchResultBox};
 use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};

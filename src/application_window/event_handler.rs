@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use gtk::PropagationPhase;
 use gtk::prelude::EditableExt;
@@ -114,7 +114,7 @@ pub fn attach_window_key_handler(
 
 pub fn attach_result_box_handlers(
     launcher_cell: Rc<RefCell<Launcher>>,
-    result_box: &mut SearchResultBox,
+    result_box: &SearchResultBox,
     frame_idx: usize,
 ) {
     let gesture_click = gtk::GestureClick::builder()
@@ -126,16 +126,17 @@ pub fn attach_result_box_handlers(
 
     let launcher_cell_gc = launcher_cell.clone();
 
-    let gesture_click_result_box = result_box.clone();
     gesture_click.connect_pressed(move |_, _, _, _| {
         println!("gesture_click handler {frame_idx}");
         let mut launcher = launcher_cell_gc.borrow_mut();
-        if gesture_click_result_box.has_focus() {
+        if launcher.search_result_container.index(frame_idx).has_focus() {
             launcher.launch_selected_application();
+            drop(launcher);
         } else {
-            gesture_click_result_box.grab_focus();
+            let search_result_box = launcher.search_result_container.index(frame_idx).clone();
+            drop(launcher);
+            search_result_box.grab_focus();
         }
-        drop(launcher);
         launcher::hide_window(launcher_cell_gc.clone());
     });
 
@@ -151,7 +152,7 @@ pub fn attach_result_box_handlers(
     let launcher_cell_focus = launcher_cell.clone();
 
     result_box.connect_has_focus_notify(move |f| {
-        println!("result frame focus {frame_idx}");
+        println!("result box connect_has_focus_notify {frame_idx}");
         let mut launcher = launcher_cell_focus.borrow_mut();
         launcher.selected_search_idx = Some(f.get().idx_in_container.try_into().unwrap());
     });

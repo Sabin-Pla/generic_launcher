@@ -52,7 +52,7 @@ mod inner {
 
             if let Some(n) = n_chars {
                 let end_idx = utils::char_position(&buf[position_idx..], n as usize);
-                println!("Draining {} {position_idx}..{end_idx} {n}", &buf);
+                println!("Draining {:?} {position_idx}..{end_idx} {n}", &buf);
                 buf.drain(position_idx..position_idx + end_idx);
             } else {
                 buf.drain(position_idx..);

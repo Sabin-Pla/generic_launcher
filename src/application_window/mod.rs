@@ -1,8 +1,8 @@
 mod event_handler;
 mod initialize_widgets;
 
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 use std::path::Path;
 
 use gtk::prelude::*;

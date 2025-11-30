@@ -77,8 +77,6 @@ impl SearchResultContainer {
             .end_child(&result_box_container.scroll_bar)
             .hexpand(true)
             .vexpand(true)
-            .height_request(300)
-            .width_request(300)
             .build();
         paned.set_parent(&obj);
         obj.set_child_visible(true);
@@ -89,12 +87,12 @@ impl SearchResultContainer {
     }
 
     pub fn attach_result_box_handlers<T: Clone>(
-            &mut self,
-            attach_handlers: impl Fn(T, &mut SearchResultBox, usize),
+            &self,
+            attach_handlers: impl Fn(T, &SearchResultBox, usize),
             handler_cell_arg: T
         ) {
         for i in 0..launcher::RESULT_ENTRY_COUNT {
-            attach_handlers(handler_cell_arg.clone(), &mut self.index(i), i);
+            attach_handlers(handler_cell_arg.clone(), &self.index(i), i);
         }
     }
 
@@ -106,8 +104,8 @@ impl SearchResultContainer {
     pub fn hide(&self) {
         for i in 0..launcher::RESULT_ENTRY_COUNT {
             let result_box = self.index(i);
-            result_box.set_focusable(false);
-            result_box.set_visible(true);
+            // dresult_box.set_focusable(false);
+            result_box.set_visible(false);
         }
     }
 

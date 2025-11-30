@@ -7,18 +7,16 @@ mod utils;
 mod xdg_desktop_entry;
 
 use std::cell::RefCell;
-use std::ffi::OsStr;
 use std::rc::Rc;
-
-use crate::launcher::Launcher;
 
 use gio::prelude::*;
 use gtk::prelude::*;
 use gtk4_layer_shell::LayerShell;
 
-use gobject::SearchEntryBuffer;
-use launcher::State;
-use user_config::ApplicationSettings;
+use crate::launcher::Launcher;
+use crate::gobject::SearchEntryBuffer;
+use crate::launcher::State;
+use crate::user_config::ApplicationSettings;
 
 thread_local! {
     static WINDOW: RefCell<Option<gtk::ApplicationWindow>> = RefCell::new(None);
