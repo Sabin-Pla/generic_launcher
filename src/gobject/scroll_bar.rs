@@ -1,5 +1,6 @@
 use gtk::glib::{Object};
 use gtk::subclass::prelude::*;
+use gtk::prelude::WidgetExt;
 
 mod inner {
     use super::*;
@@ -17,7 +18,12 @@ mod inner {
         }
     }
 
-    impl ObjectImpl for ScrollBar {}
+    impl ObjectImpl for ScrollBar {
+        fn constructed(&self) {
+            self.parent_constructed();
+            self.obj().set_layout_manager(Some(gtk::BinLayout::new()));
+        }
+    }
     impl WidgetImpl for ScrollBar {}
 }
 
@@ -28,6 +34,9 @@ glib::wrapper! {
 
 impl ScrollBar {
     pub fn new() -> Self {
-        Object::new::<Self>()
+        let obj = Object::new::<Self>();
+        obj.set_hexpand(true);
+        obj.set_vexpand(true);
+        obj
     }
 }

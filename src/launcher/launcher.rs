@@ -124,6 +124,7 @@ pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
         hide_window(launcher_cell)
     } else {
         let search_result_box = launcher.search_result_container.index(0);
+        drop(launcher);
         search_result_box.grab_focus();
     };
 }

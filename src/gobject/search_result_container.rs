@@ -16,7 +16,6 @@ mod inner {
     	pub result_boxes: RefCell<Vec<SearchResultBox>>,
     	pub inner: gtk::Box,
     	pub scroll_bar: ScrollBar,
-        pub child: RefCell<gtk::Paned>
     }
 
     #[gtk::glib::object_subclass]
@@ -27,14 +26,15 @@ mod inner {
 
         fn new() -> Self {
         	let scroll_bar = ScrollBar::new();
-        	scroll_bar.add_css_class("scroll-bar'");
-        	let inner = gtk::Box::new(gtk::Orientation::Vertical, 5);
-        	inner.set_hexpand(true);
+        	scroll_bar.add_css_class("scroll-bar");
+            scroll_bar.set_hexpand(false);
+        	let inner = gtk::Box::new(gtk::Orientation::Vertical, 0);
+            inner.set_hexpand(true);
+            inner.add_css_class("result-list");
             Self {
             	result_boxes: Default::default(),
             	inner,
             	scroll_bar,
-                child: Default::default()
             }
         }
     }
@@ -71,17 +71,14 @@ impl SearchResultContainer {
             result_boxes.push(result_box.into());
         }
 
-        let paned = gtk::Paned::builder()
-            .orientation(gtk::Orientation::Horizontal)
-            .start_child(&result_box_container.inner)
-            .end_child(&result_box_container.scroll_bar)
-            .hexpand(true)
-            .vexpand(true)
-            .build();
-        paned.set_parent(&obj);
+        let container_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        container_box.append(&result_box_container.inner);
+        container_box.append(&result_box_container.scroll_bar);
+        container_box.set_parent(&obj);
+        container_box.set_homogeneous(false);
+        container_box.add_css_class("result-container");
+
         obj.set_child_visible(true);
-        obj.add_css_class("result-container");
-        *result_box_container.child.borrow_mut() = paned;
         drop(result_boxes);
         obj
     }

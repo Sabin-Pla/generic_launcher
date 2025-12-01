@@ -132,12 +132,12 @@ pub fn attach_result_box_handlers(
         if launcher.search_result_container.index(frame_idx).has_focus() {
             launcher.launch_selected_application();
             drop(launcher);
+            launcher::hide_window(launcher_cell_gc.clone());
         } else {
             let search_result_box = launcher.search_result_container.index(frame_idx).clone();
             drop(launcher);
             search_result_box.grab_focus();
         }
-        launcher::hide_window(launcher_cell_gc.clone());
     });
 
     let launcher_cell_ecm = launcher_cell.clone();
@@ -184,10 +184,9 @@ pub fn attach_search_bar_handlers(
         search::display_search_results(&mut launcher, search_results);
     });
 
-    let launcher_cell_focus = launcher_cell;
     search_bar.connect_has_focus_notify(move |_| {
         println!("search_bar connect_has_focus_notify");
-        let mut launcher = launcher_cell_focus.borrow_mut();
+        let mut launcher = launcher_cell.borrow_mut();
         launcher.selected_search_idx = None;
     });
 

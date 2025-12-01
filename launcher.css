@@ -49,14 +49,11 @@ window {
 	border-radius: 0.5em;
 }
 
-.scroll-bar {
-	width: 1em;
-}
-
 .result-box {
 	background-image: none;
 	background-color: @result-unselected;
 	color: @result-unselected-text;
+	margin-bottom: 0.25em;
 }
 
 .result-box:hover {
@@ -76,7 +73,22 @@ window {
 .result-container {
 }
 
-.scroll-bar {}
+.result-list {
+	padding-top: 0.3em;
+	padding-bottom: 0.2em;
+	padding-right: 0.4em;
+	padding-left: 0.4em;
+	margin-right: 0.24em;
+	border-radius: 1em;
+	background-color: shade(@main-color, 0.9);
+}
+
+.scroll-bar {
+	background-color: shade(@main-color, 0.7);
+	min-width: 0.9em;
+	border-radius: 0.4em;
+	border: 0.1em solid shade(@main-color, 0.2);
+}
 
 .root {
 	border-top: 0.1em solid @accent-color;
