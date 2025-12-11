@@ -45,13 +45,14 @@ fn fetch_search_results(context: &SearchContext, mut query_string: String) -> Se
     results
 }
 
-pub fn display_search_results(launcher: &mut Launcher) {
+pub fn display_search_results(launcher: &mut Launcher, result_idx: Option<usize>) {
     let mut counter = 0;
-    for (idx, desktop_idx) in launcher.search_results_cache.iter().enumerate() {
+    let result_idx = result_idx.unwrap_or(0);
+    for (idx, desktop_idx) in launcher.search_results_cache[result_idx..].iter().enumerate() {
         if counter >= RESULT_ENTRY_COUNT {
             break;
         }
-        launcher.set_search_result_box(*desktop_idx, counter, idx);
+        launcher.set_search_result_box(*desktop_idx, counter, idx+result_idx);
         counter += 1;
     }
 }

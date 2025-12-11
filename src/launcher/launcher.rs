@@ -120,15 +120,8 @@ impl Launcher {
     }
 
     pub fn adjust_results_scrollbar(&self) {
-        let selected_result_box = match self.selected_search_idx {
-            Some(idx) if idx < 0 => self.search_result_container.index(0),
-            None => self.search_result_container.index(0),
-            Some(idx) => {
-                self.search_result_container.index(idx.try_into().unwrap())
-            }
-        };
+        let selected_result_box = self.search_result_container.index(0);
         let search_result_count = self.search_results_cache.len();
- 
         self.search_result_container.adjust_scrollbar(
             selected_result_box.get_idx_in_search_result_vector(), 
             search_result_count, 
@@ -148,7 +141,7 @@ pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
             let search_results = search::refetch_results(&mut launcher.search_context, "\n".to_string());
             launcher.set_search_results_cache(search_results);
             launcher.show_search_results_container();
-            search::display_search_results(&mut launcher);
+            search::display_search_results(&mut launcher, None);
         }
         return;
     }
@@ -178,32 +171,37 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
     const END_IDX: isize = (RESULT_ENTRY_COUNT - 1) as isize;
     match launcher.selected_search_idx {
         Some(END_IDX) => {
-            let next_search_result_idx = launcher.search_result_container.index(RESULT_ENTRY_COUNT - 1)
-                .get_idx_in_search_result_vector()
-                + 1;
-            let next_result_desktop_idx = search::get_xdg_index_from_last_search_result_idx(
-                &launcher.search_context,
-                next_search_result_idx,
-            );
-            let next_result_desktop_idx = match next_result_desktop_idx {
-                Some(idx) => idx,
-                None => return,
-            };
-            for i in 0..launcher.search_result_container.len() - 1 {
-                let next_box = &launcher.search_result_container.index(i + 1);
-                let search_result_idx = next_box.get_idx_in_search_result_vector();
-                let desktop_idx = next_box.get_desktop_idx();
-                launcher.set_search_result_box(desktop_idx, i, search_result_idx);
+            let next_page_top = launcher.search_result_container.index(1)
+                .get_idx_in_search_result_vector();
+            println!("next_page_top {} / {}", next_page_top,  launcher.search_results_cache.len());
+            let end = launcher.search_results_cache.len();
+            if end < RESULT_ENTRY_COUNT || next_page_top > end - RESULT_ENTRY_COUNT {
+                return;
             }
-            launcher.set_search_result_box(
-                next_result_desktop_idx,
-                RESULT_ENTRY_COUNT - 1,
-                next_search_result_idx,
-            );
+            search::display_search_results(&mut launcher, Some(next_page_top));
         }
         _ => (),
     }
     launcher.adjust_results_scrollbar();
+}
+
+pub fn scroll_search_results_up(launcher: Rc<RefCell<Launcher>>) -> bool {
+    let mut launcher = launcher.borrow_mut();
+    const END_IDX: isize = (RESULT_ENTRY_COUNT - 1) as isize;
+    match launcher.selected_search_idx {
+        Some(0) => {
+            let prev_search_result_idx = launcher.search_result_container.index(0)
+                .get_idx_in_search_result_vector();
+            if prev_search_result_idx == 0 {
+                return false;
+            }
+            search::display_search_results(&mut launcher, Some(prev_search_result_idx - 1));
+            launcher.adjust_results_scrollbar();
+            return true;
+        }
+        _ => (),
+    }
+    false
 }
 
 pub fn focus_text_input(launcher: Rc<RefCell<Launcher>>) {

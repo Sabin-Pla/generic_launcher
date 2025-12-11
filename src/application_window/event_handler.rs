@@ -86,6 +86,11 @@ pub fn attach_window_key_handler(
             gdk::Key::Down => {
                 launcher::scroll_search_results_down(launcher_cell.clone());
             }
+            gdk::Key::Up => {
+                if launcher::scroll_search_results_up(launcher_cell.clone()) {
+                    return gtk::glib::Propagation::Stop;
+                }
+            }
             _ => {
                 if let Some(character) = key.to_unicode() {
                     launcher::focus_text_input(launcher_cell.clone());
@@ -173,8 +178,8 @@ pub fn attach_search_bar_handlers(
             launcher.disable_motion_events(); // will be re-enabled next time a motion event is triggered.
             launcher.show_search_results_container();
             launcher.set_search_results_cache(search_results);
+            search::display_search_results(&mut launcher, None);
             launcher.adjust_results_scrollbar();
-            search::display_search_results(&mut launcher);
         }
     });
 
