@@ -5,6 +5,7 @@ use gtk::PropagationPhase;
 use gtk::prelude::EditableExt;
 use gtk::prelude::IMContextExt;
 use gtk::prelude::WidgetExt;
+use gtk::prelude::AdjustmentExt;
 
 use crate::gobject::{SearchEntryIMContext, SearchResultBox};
 use crate::launcher;
@@ -178,7 +179,7 @@ pub fn attach_search_bar_handlers(
             launcher.disable_motion_events(); // will be re-enabled next time a motion event is triggered.
             launcher.show_search_results_container();
             launcher.set_search_results_cache(search_results);
-            search::display_search_results(&mut launcher, None);
+            launcher.display_search_results(None);
             launcher.adjust_results_scrollbar();
         }
     });
@@ -190,4 +191,15 @@ pub fn attach_search_bar_handlers(
     });
 
     search_bar.add_controller(ec);
+}
+
+pub fn results_scroll_handler(launcher_cell: Rc<RefCell<Launcher>>, adjustment: &gtk::Adjustment) {
+    match launcher_cell.try_borrow_mut() {
+        Ok(mut launcher) => {
+            let selected_result_box = launcher.search_result_container.index(0);
+            let result_idx = selected_result_box.get_idx_in_search_result_vector();
+            launcher.display_search_results(Some(adjustment.value().floor() as usize));
+        },
+        Err(..) => () // event already being handled
+    }
 }

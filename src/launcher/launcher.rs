@@ -131,6 +131,18 @@ impl Launcher {
     pub fn set_search_results_cache(&mut self, search_results: search::SearchResult) {
         self.search_results_cache = search_results
     }
+
+    pub fn display_search_results(&mut self, result_idx: Option<usize>) {
+        let mut counter = 0;
+        let result_idx = result_idx.unwrap_or(0);
+        for (idx, desktop_idx) in self.search_results_cache[result_idx..].iter().enumerate() {
+            if counter >= RESULT_ENTRY_COUNT {
+                break;
+            }
+            self.set_search_result_box(*desktop_idx, counter, idx+result_idx);
+            counter += 1;
+        }
+    }
 }
 
 pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
@@ -141,7 +153,8 @@ pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
             let search_results = search::refetch_results(&mut launcher.search_context, "\n".to_string());
             launcher.set_search_results_cache(search_results);
             launcher.show_search_results_container();
-            search::display_search_results(&mut launcher, None);
+            launcher.display_search_results(None);
+            launcher.adjust_results_scrollbar();
         }
         return;
     }
@@ -178,7 +191,7 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
             if end < RESULT_ENTRY_COUNT || next_page_top > end - RESULT_ENTRY_COUNT {
                 return;
             }
-            search::display_search_results(&mut launcher, Some(next_page_top));
+            launcher.display_search_results(Some(next_page_top));
         }
         _ => (),
     }
@@ -195,7 +208,7 @@ pub fn scroll_search_results_up(launcher: Rc<RefCell<Launcher>>) -> bool {
             if prev_search_result_idx == 0 {
                 return false;
             }
-            search::display_search_results(&mut launcher, Some(prev_search_result_idx - 1));
+            launcher.display_search_results(Some(prev_search_result_idx - 1));
             launcher.adjust_results_scrollbar();
             return true;
         }

@@ -3,7 +3,7 @@ use std::collections::{HashMap, hash_map};
 use std::rc::Rc;
 
 use gtk::glib::{Object};
-use gtk::prelude::{BoxExt, ButtonExt, LayoutManagerExt, WidgetExt};
+use gtk::prelude::{AdjustmentExt, BoxExt, ButtonExt, LayoutManagerExt, WidgetExt};
 use gtk::subclass::prelude::*;
 
 use crate::gobject::SearchResultBox;
@@ -15,8 +15,7 @@ mod inner {
     pub struct SearchResultContainer {
     	pub result_boxes: RefCell<Vec<SearchResultBox>>,
     	pub inner: gtk::Box,
-    	pub scroll_bar: gtk::Scrollbar,
-        pub root_box: RefCell<gtk::Box>,
+    	pub scroll_bar: gtk::Scrollbar
     }
 
     #[gtk::glib::object_subclass]
@@ -35,8 +34,7 @@ mod inner {
             Self {
             	result_boxes: Default::default(),
             	inner,
-            	scroll_bar,
-                root_box: Default::default()
+            	scroll_bar
             }
         }
     }
@@ -95,25 +93,30 @@ impl SearchResultContainer {
         }
     }
 
+    pub fn attach_scroll_bar_handler<T: Clone + 'static>(
+            &self,
+            handler: impl Fn(T, &gtk::Adjustment) + 'static,
+            handler_cell_arg: T
+        ) {
+        let result_box_container = &inner::SearchResultContainer::from_obj(&self);
+        let handler_wrapper = move |adjustment:  &gtk::Adjustment| {
+            handler(handler_cell_arg.clone(), adjustment)
+        };
+        result_box_container.scroll_bar.adjustment().connect_value_changed(handler_wrapper);
+    }
+
     pub fn index(&self, idx: usize) -> SearchResultBox {
         let result_box_container = &inner::SearchResultContainer::from_obj(&self);
         result_box_container.result_boxes.borrow()[idx].clone()
     }
 
-
     pub fn hide(&self) {
         self.set_visible(false);
-    }
-
-    pub fn set_rootbox(&self, root_box: gtk::Box) {
-        let result_box_container = &inner::SearchResultContainer::from_obj(self);
-        *result_box_container.root_box.borrow_mut() = root_box;
     }
 
     pub fn show(&self) {
         self.set_visible(true);
     }
-
 
     pub fn len(&self) -> usize {
         let result_box_container = &inner::SearchResultContainer::from_obj(&self);
@@ -127,7 +130,11 @@ impl SearchResultContainer {
         let lower = 0.0;
         let upper = result_count as f64;
         let page_size = per_page as f64;
-        scroll_bar.set_adjustment(Some(&gtk::Adjustment::new(value, lower, upper, 3.0, 3.0, page_size)));
+        let adjustment = scroll_bar.adjustment();
+        adjustment.set_upper(upper);
+        adjustment.set_lower(lower);
+        adjustment.set_value(value);
+        adjustment.set_page_size(page_size);
     }
 }
 

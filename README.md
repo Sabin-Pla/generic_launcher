@@ -19,7 +19,9 @@ Set up shortcuts for your compositor. For Hyprland I use:
 `bind = SUPER, SUPER_L, exec, $launcher`
 
 #### Todo list:
-- Scroll bar on search results
+- ~~Scroll bar on search results~~ DONE
+- Better search score function
+- Ensure search with < 6 search results work  
 - Settings toml file logic is partially implemented but unused and untested
 - Set window size properly for HiDPI displays
 - Launcher options on dropdown/rightclick, as some .desktop files have multiple launch options
