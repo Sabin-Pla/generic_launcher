@@ -77,7 +77,6 @@ pub fn attach_window_key_handler(
           -> gtk::glib::Propagation {
         match key {
             gdk::Key::Escape => {
-                println!("Hiding window");
                 launcher::hide_window(launcher_cell.clone());
                 return gtk::glib::Propagation::Stop;
             }
@@ -89,18 +88,7 @@ pub fn attach_window_key_handler(
             }
             _ => {
                 if let Some(character) = key.to_unicode() {
-                    println!("keyboard unicode");
-                    if launcher::focus_text_input(launcher_cell.clone()) {
-                        // search bar widget never receives key press because it was fired
-                        // on some other widget. So this key needs to be inserted manually.
-                        let launcher = launcher_cell.borrow();
-                        let input_buffer = launcher.input_buffer.clone().unwrap();
-                        let search_bar = launcher.search_bar.clone();
-                        drop(launcher);
-                        let input_bufer = input_buffer.borrow();
-                        let pos = input_buffer.borrow().length() as i32;
-                        // search_bar.insert_text(&character.to_string(), &mut pos);
-                    }
+                    launcher::focus_text_input(launcher_cell.clone());
                 }
             }
         };
@@ -172,16 +160,22 @@ pub fn attach_search_bar_handlers(
     im_context.set_use_preedit(true);
 
     let launcher_cell_buffer_changed = launcher_cell.clone();
-    search_bar.connect_changed(move |buffer| {
+    search_bar.connect_changed(move |search_bar| {
         println!("Search bar changed");
-        let buffer = buffer.text().to_string();
+        let buffer_text = search_bar.text().to_string();
         let launcher_cell = launcher_cell_buffer_changed.clone();
         let mut launcher = launcher_cell.borrow_mut();
-        let search_results = search::refetch_results(&mut launcher.search_context, buffer);
-
-        // in case the mouse cursor is on a result box while they type, disable stealing cursor focus
-        launcher.disable_motion_events(); // will be re-enabled next time a motion event is triggered.
-        search::display_search_results(&mut launcher, search_results);
+        let search_results = search::refetch_results(&mut launcher.search_context, buffer_text);
+        if search_results.is_empty() {
+            launcher.hide_search_results_container();
+        } else {
+            // in case the mouse cursor is on a result box while they type, disable stealing cursor focus
+            launcher.disable_motion_events(); // will be re-enabled next time a motion event is triggered.
+            launcher.show_search_results_container();
+            launcher.set_search_results_cache(search_results);
+            launcher.adjust_results_scrollbar();
+            search::display_search_results(&mut launcher);
+        }
     });
 
     search_bar.connect_has_focus_notify(move |_| {

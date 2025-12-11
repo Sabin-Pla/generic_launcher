@@ -18,6 +18,12 @@ struct SearchCandidate {
 
 fn fetch_search_results(context: &SearchContext, mut query_string: String) -> SearchResult {
     let mut results: Vec<SearchCandidate> = Vec::with_capacity(context.user_desktop_files.len());
+    let mut query_string = match query_string.as_str() {
+        "\n" => "".to_string(),
+        "" => return Vec::new(),
+        _ => query_string
+    };
+
     query_string.make_ascii_lowercase();
     for (idx, entry) in context.user_desktop_files.iter().enumerate() {
         let score = get_search_score_for(entry, &query_string);
@@ -39,10 +45,9 @@ fn fetch_search_results(context: &SearchContext, mut query_string: String) -> Se
     results
 }
 
-pub fn display_search_results(launcher: &mut Launcher, results: SearchResult) {
-    launcher.clear_search_results();
+pub fn display_search_results(launcher: &mut Launcher) {
     let mut counter = 0;
-    for (idx, desktop_idx) in results.iter().enumerate() {
+    for (idx, desktop_idx) in launcher.search_results_cache.iter().enumerate() {
         if counter >= RESULT_ENTRY_COUNT {
             break;
         }

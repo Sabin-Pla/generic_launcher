@@ -21,12 +21,8 @@ pub fn initialize(application: &gtk::Application) -> gtk::ApplicationWindow {
 
     application_window.add_action_entries([action_close]);
     application_window.init_layer_shell();
-
-    // todo!("make these pixel values proportional");
     application_window.set_layer(Layer::Overlay);
-    application_window.set_margin(Edge::Left, 800);
-    application_window.set_margin(Edge::Right, 800);
-    application_window.set_margin(Edge::Top, 400);
+
 
     let anchors = [
         (Edge::Left, true),

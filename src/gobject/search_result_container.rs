@@ -6,7 +6,7 @@ use gtk::glib::{Object};
 use gtk::prelude::{BoxExt, ButtonExt, LayoutManagerExt, WidgetExt};
 use gtk::subclass::prelude::*;
 
-use crate::gobject::{SearchResultBox, ScrollBar};
+use crate::gobject::SearchResultBox;
 use crate::launcher;
 
 mod inner {
@@ -15,7 +15,8 @@ mod inner {
     pub struct SearchResultContainer {
     	pub result_boxes: RefCell<Vec<SearchResultBox>>,
     	pub inner: gtk::Box,
-    	pub scroll_bar: ScrollBar,
+    	pub scroll_bar: gtk::Scrollbar,
+        pub root_box: RefCell<gtk::Box>,
     }
 
     #[gtk::glib::object_subclass]
@@ -25,7 +26,7 @@ mod inner {
         type ParentType = gtk::Widget;
 
         fn new() -> Self {
-        	let scroll_bar = ScrollBar::new();
+        	let scroll_bar = gtk::Scrollbar::new(gtk::Orientation::Vertical, None::<&gtk::Adjustment>);
         	scroll_bar.add_css_class("scroll-bar");
             scroll_bar.set_hexpand(false);
         	let inner = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -35,6 +36,7 @@ mod inner {
             	result_boxes: Default::default(),
             	inner,
             	scroll_bar,
+                root_box: Default::default()
             }
         }
     }
@@ -98,16 +100,34 @@ impl SearchResultContainer {
         result_box_container.result_boxes.borrow()[idx].clone()
     }
 
+
     pub fn hide(&self) {
-        for i in 0..launcher::RESULT_ENTRY_COUNT {
-            let result_box = self.index(i);
-            // dresult_box.set_focusable(false);
-            result_box.set_visible(false);
-        }
+        self.set_visible(false);
     }
+
+    pub fn set_rootbox(&self, root_box: gtk::Box) {
+        let result_box_container = &inner::SearchResultContainer::from_obj(self);
+        *result_box_container.root_box.borrow_mut() = root_box;
+    }
+
+    pub fn show(&self) {
+        self.set_visible(true);
+    }
+
 
     pub fn len(&self) -> usize {
         let result_box_container = &inner::SearchResultContainer::from_obj(&self);
         result_box_container.result_boxes.borrow().len()
     }
+
+    pub fn adjust_scrollbar(&self, top_idx: usize, result_count: usize, per_page: usize) {
+        let result_box_container = &inner::SearchResultContainer::from_obj(&self);
+        let scroll_bar = &result_box_container.scroll_bar;
+        let value = top_idx as f64;
+        let lower = 0.0;
+        let upper = result_count as f64;
+        let page_size = per_page as f64;
+        scroll_bar.set_adjustment(Some(&gtk::Adjustment::new(value, lower, upper, 3.0, 3.0, page_size)));
+    }
 }
+

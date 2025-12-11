@@ -21,6 +21,7 @@ pub fn root(
     let mut search_result_container = launcher.search_result_container.clone();
     drop(launcher);
     search_result_container.attach_result_box_handlers(event_handler::attach_result_box_handlers, launcher_cell);
+    search_result_container.set_rootbox(root_box.clone());
     root_box.append(&search_result_container);
     application_window.set_child(Some(&root_box));
 }
@@ -71,7 +72,7 @@ fn search_bar(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
     search_bar.set_placeholder_text(Some("Applications"));
     search_bar.set_has_frame(true);
     let mut launcher = launcher_cell.borrow_mut();
-    launcher.clear_search_results();
+    launcher.hide_search_results_container();
     search_bar.clone()
 }
 

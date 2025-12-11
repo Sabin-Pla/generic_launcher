@@ -20,7 +20,6 @@ window {
  	border-radius: 1em;
 }
 
-
 .screenshot-button {
 	color: @button-inactive;
 	margin-top: 1em;
@@ -85,13 +84,22 @@ window {
 
 .scroll-bar {
 	background-color: shade(@main-color, 0.7);
-	min-width: 0.9em;
+	min-width: 0.5em;
 	border-radius: 0.4em;
 	border: 0.1em solid shade(@main-color, 0.2);
 }
+
+.scroll-bar slider {   
+    min-height: 1em;  
+}
+
 
 .root {
 	border-top: 0.1em solid @accent-color;
 	border-bottom: 0.1em solid @accent-color;
 	padding-bottom: 1em;
+}
+
+.scroll-bar-thumb {
+	background-color: white;
 }

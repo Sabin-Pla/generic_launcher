@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gtk::prelude::{EntryExt, FileExt, GridExt,  WidgetExt};
+use gtk::prelude::{EditableExt, EntryExt, FileExt, GridExt,  WidgetExt};
 
 use super::State;
 use crate::gobject::{SearchEntryBuffer, SearchResultContainer, SearchResultBox};
@@ -25,6 +25,7 @@ pub struct Launcher {
     pub screenshot_button: Rc<gtk::Image>,
     pub hovered_idx: usize,
     pub current_monitor: Rc<RefCell<Option<(i32, i32)>>>,
+    pub search_results_cache: search::SearchResult,
     hovering_suppressed: bool,
 }
 
@@ -43,27 +44,20 @@ impl Launcher {
             screenshot_button: Default::default(),
             hovered_idx: 0,
             current_monitor: Rc::new(RefCell::new(None)),
+            search_results_cache: Vec::new(),
             hovering_suppressed: false,
         }
     }
 
     pub fn disable_motion_events(&mut self) {
-        println!("disable_motion_events()");
         self.hovering_suppressed = true;
     }
 
     pub fn enable_motion_events(&mut self) {
-        println!("enable_motion_events()");
         self.hovering_suppressed = false;
     }
 
-    pub fn clear_search_results(&mut self) {
-         // return;
-        self.search_result_container.hide();
-    }
-
     pub fn launch_selected_application(&mut self) {
-        println!("launch_selected_application()");
         let search_result_box = match self.selected_search_idx {
             Some(-1) => {
                 self.custom_launchers.clone().unwrap()[0].launch(None);
@@ -76,7 +70,7 @@ impl Launcher {
     }
 
     pub fn set_search_result_box(
-        &mut self,
+        &self,
         desktop_idx: usize,
         container_idx: usize,
         search_result_idx: usize,
@@ -90,6 +84,7 @@ impl Launcher {
         search_result_box.set_focusable(true);
         search_result_box.set_visible(true);
         let app_info = desktop_entry.app_info.clone();
+        /*
         if app_info.has_key("Icon") {
             let icon_name = app_info.locale_string("Icon").unwrap();
             let image = gtk::Image::from_icon_name(&icon_name);
@@ -100,8 +95,9 @@ impl Launcher {
                 .column_spacing(100)
                 .build();
             root.attach(&image, 1, 1, 3, 20);
-            // result_box.set_icon(&icon_name);
-        }
+            result_box.set_icon(&icon_name);
+        } 
+        */
         let search_result_box = &mut self.search_result_container.index(container_idx);
     }
 
@@ -114,10 +110,48 @@ impl Launcher {
             None => (),
         };
     }
+
+    pub fn hide_search_results_container(&self) {
+        self.search_result_container.hide();
+    }
+
+     pub fn show_search_results_container(&self) {
+        self.search_result_container.show();
+    }
+
+    pub fn adjust_results_scrollbar(&self) {
+        let selected_result_box = match self.selected_search_idx {
+            Some(idx) if idx < 0 => self.search_result_container.index(0),
+            None => self.search_result_container.index(0),
+            Some(idx) => {
+                self.search_result_container.index(idx.try_into().unwrap())
+            }
+        };
+        let search_result_count = self.search_results_cache.len();
+ 
+        self.search_result_container.adjust_scrollbar(
+            selected_result_box.get_idx_in_search_result_vector(), 
+            search_result_count, 
+            std::cmp::min(RESULT_ENTRY_COUNT, search_result_count));
+    }
+
+    pub fn set_search_results_cache(&mut self, search_results: search::SearchResult) {
+        self.search_results_cache = search_results
+    }
 }
 
 pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
     let mut launcher = launcher_cell.borrow_mut();
+    if ! launcher.search_result_container.is_visible() {
+        if launcher.search_bar.text() == "" {
+            println!("Enter pressed with empty search bar - showing all apps");
+            let search_results = search::refetch_results(&mut launcher.search_context, "\n".to_string());
+            launcher.set_search_results_cache(search_results);
+            launcher.show_search_results_container();
+            search::display_search_results(&mut launcher);
+        }
+        return;
+    }
     if let Some(_idx) = launcher.selected_search_idx {
         launcher.launch_selected_application();
         drop(launcher);
@@ -131,7 +165,6 @@ pub fn handle_enter_key(launcher_cell: Rc<RefCell<Launcher>>) {
 
 pub fn hide_window(launcher: Rc<RefCell<Launcher>>) {
     WINDOW.with(|application_window| {
-        println!("Hiding window");
         let mut application_window = (*application_window).borrow_mut();
         let application_window = application_window.as_mut().unwrap();
         application_window.set_visible(false);
@@ -170,31 +203,25 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
         }
         _ => (),
     }
+    launcher.adjust_results_scrollbar();
 }
 
-pub fn focus_text_input(launcher: Rc<RefCell<Launcher>>) -> bool {
-    let launcher = launcher.borrow_mut();
-    let search_bar = launcher.search_bar.clone();
-    drop(launcher);
+pub fn focus_text_input(launcher: Rc<RefCell<Launcher>>) {
+    let search_bar = &launcher.borrow().search_bar.clone();
     if !search_bar.has_focus() {
         search_bar.grab_focus_without_selecting();
-        return true;
     }
-    false
 }
 
 pub fn handle_result_box_hovered(launcher: Rc<RefCell<Launcher>>, hovered_idx: usize) {
     let mut launcher = launcher.borrow_mut();
     if launcher.hovering_suppressed {
-        println!("Hovering is suppressed");
         launcher.enable_motion_events();
         return;
     }
     launcher.hovered_idx = hovered_idx;
-    println!("launcher handle hover: {hovered_idx}");
     launcher.selected_search_idx = Some(hovered_idx as isize);
     let search_result_box = launcher.search_result_container.index(hovered_idx).clone();
     drop(launcher);
-    println!("refocusing result box {hovered_idx} {:?}", &search_result_box);
     search_result_box.grab_focus();
 }
