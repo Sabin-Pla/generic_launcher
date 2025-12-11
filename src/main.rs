@@ -7,18 +7,16 @@ mod utils;
 mod xdg_desktop_entry;
 
 use std::cell::RefCell;
-use std::ffi::OsStr;
 use std::rc::Rc;
-
-use crate::launcher::Launcher;
 
 use gio::prelude::*;
 use gtk::prelude::*;
 use gtk4_layer_shell::LayerShell;
 
-use gobject::SearchEntryBuffer;
-use launcher::State;
-use user_config::ApplicationSettings;
+use crate::launcher::Launcher;
+use crate::gobject::SearchEntryBuffer;
+use crate::launcher::State;
+use crate::user_config::ApplicationSettings;
 
 thread_local! {
     static WINDOW: RefCell<Option<gtk::ApplicationWindow>> = RefCell::new(None);
@@ -44,8 +42,8 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
             },
             
             State::Hidden => {
+                println!("Showing launcher");
                 application_window.set_visible(true);
-
                 // set monitor dimensions
                 let surface = application_window.surface().unwrap();
                 let display = gtk::prelude::WidgetExt::display(application_window);
@@ -53,14 +51,16 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
                 let rect = display.unwrap().geometry();
                 let (monitor_width, monitor_height) = (rect.width(), rect.height());
                 *launcher.current_monitor.borrow_mut() = Some((monitor_width, monitor_height));
+                application_window.set_margin(gtk4_layer_shell::Edge::Left, (monitor_width as f32 * 0.25) as i32);
+                application_window.set_margin(gtk4_layer_shell::Edge::Right, (monitor_width as f32 * 0.25) as i32);
 
-                launcher.clear_search_results();
+                launcher.hide_search_results_container();
                 let search_bar = launcher.search_bar.clone();
                 drop(launcher);
                 search_bar.set_text("");
                 search_bar.grab_focus();
+                
                 let mut launcher = launcher_cell.borrow_mut();
-
                 launcher.state = State::Visible;
             }
         }

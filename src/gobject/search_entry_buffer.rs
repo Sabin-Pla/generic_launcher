@@ -25,11 +25,6 @@ mod inner {
     impl ObjectImpl for SearchEntryBuffer {}
     impl EntryBufferImpl for SearchEntryBuffer {
         fn inserted_text(&self, position: u32, chars: &str) {
-            println!(
-                "text inserted at position {position}| {} {}",
-                chars.len(),
-                chars
-            );
             if chars.len() == 1 && chars.as_bytes()[0] == 13 {
                 return; // carrage return ascii, don't add control chars to buffer.
             }
@@ -52,12 +47,11 @@ mod inner {
 
             if let Some(n) = n_chars {
                 let end_idx = utils::char_position(&buf[position_idx..], n as usize);
-                println!("Draining {} {position_idx}..{end_idx} {n}", &buf);
+                println!("Draining {:?} {position_idx}..{end_idx} {n}", &buf);
                 buf.drain(position_idx..position_idx + end_idx);
             } else {
                 buf.drain(position_idx..);
             }
-            println!("deleted text: {position}");
             drop(buf);
 
             self.parent_deleted_text(position, n_chars);

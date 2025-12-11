@@ -1,10 +1,11 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use gtk::PropagationPhase;
 use gtk::prelude::EditableExt;
 use gtk::prelude::IMContextExt;
 use gtk::prelude::WidgetExt;
+use gtk::prelude::AdjustmentExt;
 
 use crate::gobject::{SearchEntryIMContext, SearchResultBox};
 use crate::launcher;
@@ -77,7 +78,6 @@ pub fn attach_window_key_handler(
           -> gtk::glib::Propagation {
         match key {
             gdk::Key::Escape => {
-                println!("Hiding window");
                 launcher::hide_window(launcher_cell.clone());
                 return gtk::glib::Propagation::Stop;
             }
@@ -87,20 +87,14 @@ pub fn attach_window_key_handler(
             gdk::Key::Down => {
                 launcher::scroll_search_results_down(launcher_cell.clone());
             }
+            gdk::Key::Up => {
+                if launcher::scroll_search_results_up(launcher_cell.clone()) {
+                    return gtk::glib::Propagation::Stop;
+                }
+            }
             _ => {
                 if let Some(character) = key.to_unicode() {
-                    println!("keyboard unicode");
-                    if launcher::focus_text_input(launcher_cell.clone()) {
-                        // search bar widget never receives key press because it was fired
-                        // on some other widget. So this key needs to be inserted manually.
-                        let launcher = launcher_cell.borrow();
-                        let input_buffer = launcher.input_buffer.clone().unwrap();
-                        let search_bar = launcher.search_bar.clone();
-                        drop(launcher);
-                        let input_bufer = input_buffer.borrow();
-                        let pos = input_buffer.borrow().length() as i32;
-                        // search_bar.insert_text(&character.to_string(), &mut pos);
-                    }
+                    launcher::focus_text_input(launcher_cell.clone());
                 }
             }
         };
@@ -114,7 +108,7 @@ pub fn attach_window_key_handler(
 
 pub fn attach_result_box_handlers(
     launcher_cell: Rc<RefCell<Launcher>>,
-    result_box: &mut SearchResultBox,
+    result_box: &SearchResultBox,
     frame_idx: usize,
 ) {
     let gesture_click = gtk::GestureClick::builder()
@@ -129,15 +123,15 @@ pub fn attach_result_box_handlers(
     gesture_click.connect_pressed(move |_, _, _, _| {
         println!("gesture_click handler {frame_idx}");
         let mut launcher = launcher_cell_gc.borrow_mut();
-        if launcher.search_result_frames[frame_idx].has_focus() {
+        if launcher.search_result_container.index(frame_idx).has_focus() {
             launcher.launch_selected_application();
             drop(launcher);
+            launcher::hide_window(launcher_cell_gc.clone());
         } else {
-            let frame = launcher.search_result_frames[frame_idx].clone();
+            let search_result_box = launcher.search_result_container.index(frame_idx).clone();
             drop(launcher);
-            frame.grab_focus();
+            search_result_box.grab_focus();
         }
-        launcher::hide_window(launcher_cell_gc.clone());
     });
 
     let launcher_cell_ecm = launcher_cell.clone();
@@ -152,7 +146,7 @@ pub fn attach_result_box_handlers(
     let launcher_cell_focus = launcher_cell.clone();
 
     result_box.connect_has_focus_notify(move |f| {
-        println!("result frame focus {frame_idx}");
+        println!("result box connect_has_focus_notify {frame_idx}");
         let mut launcher = launcher_cell_focus.borrow_mut();
         launcher.selected_search_idx = Some(f.get().idx_in_container.try_into().unwrap());
     });
@@ -172,24 +166,40 @@ pub fn attach_search_bar_handlers(
     im_context.set_use_preedit(true);
 
     let launcher_cell_buffer_changed = launcher_cell.clone();
-    search_bar.connect_changed(move |buffer| {
+    search_bar.connect_changed(move |search_bar| {
         println!("Search bar changed");
-        let buffer = buffer.text().to_string();
+        let buffer_text = search_bar.text().to_string();
         let launcher_cell = launcher_cell_buffer_changed.clone();
         let mut launcher = launcher_cell.borrow_mut();
-        let search_results = search::refetch_results(&mut launcher.search_context, buffer);
-
-        // in case the mouse cursor is on a result box while they type, disable stealing cursor focus
-        launcher.disable_motion_events(); // will be re-enabled next time a motion event is triggered.
-        search::display_search_results(&mut launcher, search_results);
+        let search_results = search::refetch_results(&mut launcher.search_context, buffer_text);
+        if search_results.is_empty() {
+            launcher.hide_search_results_container();
+        } else {
+            // in case the mouse cursor is on a result box while they type, disable stealing cursor focus
+            launcher.disable_motion_events(); // will be re-enabled next time a motion event is triggered.
+            launcher.show_search_results_container();
+            launcher.set_search_results_cache(search_results);
+            launcher.display_search_results(None);
+            launcher.adjust_results_scrollbar();
+        }
     });
 
-    let launcher_cell_focus = launcher_cell;
     search_bar.connect_has_focus_notify(move |_| {
         println!("search_bar connect_has_focus_notify");
-        let mut launcher = launcher_cell_focus.borrow_mut();
+        let mut launcher = launcher_cell.borrow_mut();
         launcher.selected_search_idx = None;
     });
 
     search_bar.add_controller(ec);
+}
+
+pub fn results_scroll_handler(launcher_cell: Rc<RefCell<Launcher>>, adjustment: &gtk::Adjustment) {
+    match launcher_cell.try_borrow_mut() {
+        Ok(mut launcher) => {
+            let selected_result_box = launcher.search_result_container.index(0);
+            let result_idx = selected_result_box.get_idx_in_search_result_vector();
+            launcher.display_search_results(Some(adjustment.value().floor() as usize));
+        },
+        Err(..) => () // event already being handled
+    }
 }

@@ -1,7 +1,7 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
-use crate::gobject::{ClockWidget, SearchEntryIMContext, SearchResultBox, SearchResultBoxWidget};
+use crate::gobject::{ClockWidget, SearchEntryIMContext, SearchResultBox};
 use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};
 use crate::{SearchEntryBuffer, xdg_desktop_entry};
 use gtk::prelude::*;
@@ -10,14 +10,19 @@ use super::event_handler;
 
 pub fn root(
     application_window: &mut gtk::ApplicationWindow,
-    launcher: Rc<RefCell<Launcher>>,
+    launcher_cell: Rc<RefCell<Launcher>>,
     icon_theme: &gtk::IconTheme,
 ) {
     let root_box = gtk::Box::new(gtk::Orientation::Vertical, 9);
     root_box.add_css_class("root");
-    root_box.append(&topbar(launcher.clone(), icon_theme));
-    root_box.append(&search_bar(launcher.clone()));
-    root_box.append(&search_result_box(launcher));
+    root_box.append(&topbar(launcher_cell.clone(), icon_theme));
+    root_box.append(&search_bar(launcher_cell.clone()));
+    let launcher = launcher_cell.borrow();
+    let mut search_result_container = launcher.search_result_container.clone();
+    drop(launcher);
+    search_result_container.attach_result_box_handlers(event_handler::attach_result_box_handlers, launcher_cell.clone());
+    search_result_container.attach_scroll_bar_handler(event_handler::results_scroll_handler, launcher_cell);
+    root_box.append(&search_result_container);
     application_window.set_child(Some(&root_box));
 }
 
@@ -63,37 +68,12 @@ fn search_bar(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
     launcher.search_bar = Rc::new(search_bar.clone());
     let search_bar = &mut search_bar;
 
-    drop(launcher); // accessing buffer locks mutex...
+    drop(launcher);
     search_bar.set_placeholder_text(Some("Applications"));
     search_bar.set_has_frame(true);
     let mut launcher = launcher_cell.borrow_mut();
-    launcher.clear_search_results();
+    launcher.hide_search_results_container();
     search_bar.clone()
-}
-
-fn search_result_box(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Box {
-    let result_box = gtk::Box::new(gtk::Orientation::Vertical, 5);
-
-    let mut result_frames: Vec<SearchResultBox> = Vec::new();
-
-    for i in 0..RESULT_ENTRY_COUNT {
-        let result_box = SearchResultBoxWidget::from(i);
-        let mut result_box = SearchResultBox::new(result_box);
-        result_box.set_focusable(true);
-        result_box.set_can_focus(true);
-        result_box.set_focus_on_click(true);
-        gtk::prelude::ButtonExt::set_label(&result_box, &"");
-        result_box.add_css_class("result-box");
-        event_handler::attach_result_box_handlers(launcher_cell.clone(), &mut result_box, i);
-        result_frames.push(result_box.into());
-    }
-
-    for f in &result_frames {
-        result_box.append(f);
-    }
-    let mut launcher = launcher_cell.borrow_mut();
-    launcher.search_result_frames = result_frames;
-    result_box
 }
 
 fn screenshot_button(
