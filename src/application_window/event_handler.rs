@@ -63,6 +63,49 @@ pub fn attach_screenshot_handlers(
     screenshot_icon.add_controller(gesture_click);
 }
 
+pub fn attach_volume_handlers(
+    launcher: Rc<RefCell<Launcher>>,
+    volume_icon: gtk::Image,
+) {
+    let ecm = gtk::EventControllerMotion::builder()
+        .propagation_phase(gtk::PropagationPhase::Capture)
+        .build();
+    let gesture_click = gtk::GestureClick::new();
+
+    let launcher_cell_focus = launcher.clone();
+    let launcher_cell_click = launcher.clone();
+    let launcher_cell_focus_notify = launcher;
+
+    let volume_icon_enter = volume_icon.clone();
+    let volume_icon_click = volume_icon.clone();
+
+    let volume_enter_handler = move |_: &gtk::EventControllerMotion, _: f64, _: f64| {
+        volume_icon_enter.grab_focus();
+    };
+
+    let volume_leave_handler = move |_: &gtk::EventControllerMotion| {
+        launcher::focus_text_input(launcher_cell_focus.clone());
+    };
+
+    let volume_click_handler = move |_gc: &gtk::GestureClick, _: i32, _: f64, _: f64| {
+        volume_icon_click.grab_focus();
+    };
+
+    let volume_focus_notify_handler = move |_: &gtk::Image| {
+        let mut launcher = launcher_cell_focus_notify.borrow_mut();
+        launcher.selected_search_idx = Some(-2);
+    };
+
+    ecm.connect_enter(volume_enter_handler);
+    ecm.connect_leave(volume_leave_handler);
+    volume_icon.connect_has_focus_notify(volume_focus_notify_handler);
+    gesture_click.connect_pressed(volume_click_handler);
+
+    volume_icon.add_controller(ecm);
+    volume_icon.add_controller(gesture_click);
+}
+
+
 pub fn attach_window_key_handler(
     application_window: &mut gtk::ApplicationWindow,
     launcher_cell: Rc<RefCell<Launcher>>,

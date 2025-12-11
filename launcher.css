@@ -26,9 +26,20 @@ window {
 	margin-right: 1em;
 }
 
+.volume-button {
+	color: @button-inactive;
+	margin-top: 1em;
+	margin-right: 1em;
+}
+
 .screenshot-button:focus {
 	color: @result-selected-text;
 }
+
+.volume-button:focus {
+	color: @result-selected-text;
+}
+
 
 .clock {
 	margin-top: 0.4em;

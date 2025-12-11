@@ -33,7 +33,11 @@ fn topbar(launcher: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::
 
     let monitor_cell = launcher.borrow().current_monitor.clone();
     topbar.set_center_widget(Some(&ClockWidget::new(monitor_cell)));
-    topbar.set_end_widget(Some(&screenshot_button(launcher, icon_theme)));
+    let right = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+
+    right.append(&volume_button(launcher.clone(), icon_theme));
+    right.append(&screenshot_button(launcher, icon_theme));
+    topbar.set_end_widget(Some(&right));
     topbar
 }
 
@@ -99,4 +103,28 @@ fn screenshot_button(
     screenshot_icon.add_css_class("screenshot-button");
     launcher.screenshot_button = Rc::new(screenshot_icon.clone());
     screenshot_icon
+}
+
+fn volume_button(
+    launcher_cell: Rc<RefCell<Launcher>>,
+    icon_theme: &gtk::IconTheme,
+) -> gtk::Image {
+    let mut launcher = launcher_cell.borrow_mut();
+
+    // todo!("set the sizes dynamically");
+    let screenshot_paintable = icon_theme.lookup_icon(
+        "audio-volume-high-symbolic",
+        &[],
+        32,
+        1,
+        gtk::TextDirection::None,
+        gtk::IconLookupFlags::PRELOAD,
+    );
+    let mut volume_icon = gtk::Image::from_paintable(Some(&screenshot_paintable));
+    event_handler::attach_volume_handlers(launcher_cell.clone(), volume_icon.clone());
+    volume_icon.set_icon_size(gtk::IconSize::Large);
+    volume_icon.set_focusable(true);
+
+    volume_icon.add_css_class("volume-button");
+    volume_icon
 }
