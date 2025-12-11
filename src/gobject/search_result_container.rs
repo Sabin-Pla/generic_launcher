@@ -28,6 +28,7 @@ mod inner {
         	let scroll_bar = gtk::Scrollbar::new(gtk::Orientation::Vertical, None::<&gtk::Adjustment>);
         	scroll_bar.add_css_class("scroll-bar");
             scroll_bar.set_hexpand(false);
+            scroll_bar.adjustment().set_page_increment(1.0);
         	let inner = gtk::Box::new(gtk::Orientation::Vertical, 0);
             inner.set_hexpand(true);
             inner.add_css_class("result-list");
@@ -77,6 +78,14 @@ impl SearchResultContainer {
         container_box.set_parent(&obj);
         container_box.set_homogeneous(false);
         container_box.add_css_class("result-container");
+
+        let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
+        let adjustment = result_box_container.scroll_bar.adjustment();
+        scroll.connect_scroll(move |_, dx, dy| {
+            adjustment.set_value(adjustment.value() + dy);
+            glib::Propagation::Proceed
+        });
+        obj.add_controller(scroll);
 
         obj.set_child_visible(true);
         drop(result_boxes);
