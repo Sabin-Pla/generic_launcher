@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::gobject::{ClockWidget, SearchEntryIMContext, SearchResultBox};
+use crate::gobject::{ClockWidget, SearchEntryIMContext, SearchResultBox, VolumeControl};
 use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};
 use crate::{SearchEntryBuffer, xdg_desktop_entry};
 use gtk::prelude::*;
@@ -108,23 +108,14 @@ fn screenshot_button(
 fn volume_button(
     launcher_cell: Rc<RefCell<Launcher>>,
     icon_theme: &gtk::IconTheme,
-) -> gtk::Image {
+) -> VolumeControl {
     let mut launcher = launcher_cell.borrow_mut();
 
-    // todo!("set the sizes dynamically");
-    let screenshot_paintable = icon_theme.lookup_icon(
-        "audio-volume-high-symbolic",
-        &[],
-        32,
-        1,
-        gtk::TextDirection::None,
-        gtk::IconLookupFlags::PRELOAD,
-    );
-    let mut volume_icon = gtk::Image::from_paintable(Some(&screenshot_paintable));
-    event_handler::attach_volume_handlers(launcher_cell.clone(), volume_icon.clone());
-    volume_icon.set_icon_size(gtk::IconSize::Large);
-    volume_icon.set_focusable(true);
+    let volume_button = VolumeControl::new(icon_theme);
 
-    volume_icon.add_css_class("volume-button");
-    volume_icon
+    event_handler::attach_volume_handlers(launcher_cell.clone(), volume_button.clone());
+
+    volume_button.set_focusable(true);
+    volume_button.add_css_class("volume-button");
+    volume_button
 }

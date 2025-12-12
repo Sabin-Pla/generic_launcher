@@ -7,7 +7,7 @@ use gtk::prelude::IMContextExt;
 use gtk::prelude::WidgetExt;
 use gtk::prelude::AdjustmentExt;
 
-use crate::gobject::{SearchEntryIMContext, SearchResultBox};
+use crate::gobject::{SearchEntryIMContext, SearchResultBox, VolumeControl};
 use crate::launcher;
 use crate::launcher::Launcher;
 use crate::search;
@@ -65,7 +65,7 @@ pub fn attach_screenshot_handlers(
 
 pub fn attach_volume_handlers(
     launcher: Rc<RefCell<Launcher>>,
-    volume_icon: gtk::Image,
+    volume_control_button: VolumeControl,
 ) {
     let ecm = gtk::EventControllerMotion::builder()
         .propagation_phase(gtk::PropagationPhase::Capture)
@@ -76,11 +76,11 @@ pub fn attach_volume_handlers(
     let launcher_cell_click = launcher.clone();
     let launcher_cell_focus_notify = launcher;
 
-    let volume_icon_enter = volume_icon.clone();
-    let volume_icon_click = volume_icon.clone();
+    let volume_control_button_enter = volume_control_button.clone();
+    let volume_control_button_click = volume_control_button.clone();
 
     let volume_enter_handler = move |_: &gtk::EventControllerMotion, _: f64, _: f64| {
-        volume_icon_enter.grab_focus();
+        volume_control_button_enter.grab_focus();
     };
 
     let volume_leave_handler = move |_: &gtk::EventControllerMotion| {
@@ -88,21 +88,21 @@ pub fn attach_volume_handlers(
     };
 
     let volume_click_handler = move |_gc: &gtk::GestureClick, _: i32, _: f64, _: f64| {
-        volume_icon_click.grab_focus();
+        volume_control_button_click.grab_focus();
     };
 
-    let volume_focus_notify_handler = move |_: &gtk::Image| {
+    let volume_focus_notify_handler = move |_: &VolumeControl| {
         let mut launcher = launcher_cell_focus_notify.borrow_mut();
         launcher.selected_search_idx = Some(-2);
     };
 
     ecm.connect_enter(volume_enter_handler);
     ecm.connect_leave(volume_leave_handler);
-    volume_icon.connect_has_focus_notify(volume_focus_notify_handler);
+    volume_control_button.connect_has_focus_notify(volume_focus_notify_handler);
     gesture_click.connect_pressed(volume_click_handler);
 
-    volume_icon.add_controller(ecm);
-    volume_icon.add_controller(gesture_click);
+    volume_control_button.add_controller(ecm);
+    volume_control_button.add_controller(gesture_click);
 }
 
 

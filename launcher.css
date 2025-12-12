@@ -32,6 +32,10 @@ window {
 	margin-right: 1em;
 }
 
+button:focus {
+	background-color: @main-color;
+}
+
 .screenshot-button:focus {
 	color: @result-selected-text;
 }
