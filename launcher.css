@@ -32,18 +32,18 @@ window {
 	margin-right: 1em;
 }
 
-button:focus {
-	background-color: @main-color;
-}
-
 .screenshot-button:focus {
 	color: @result-selected-text;
 }
 
-.volume-button:focus {
+.focused-topbar-button {
 	color: @result-selected-text;
 }
 
+
+.volume-popover {
+	min-width: 20rem;
+}
 
 .clock {
 	margin-top: 0.4em;

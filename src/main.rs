@@ -83,9 +83,9 @@ unsafe fn startup(application: &gtk::Application, launcher_cell: Rc<RefCell<Laun
         &application_settings,
         launcher_cell.clone(),
     );
-
+    
     // todo!("get state from user config");
-    application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
+    //application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
 
     let mut launcher = launcher_cell.borrow_mut();
     let css_file = std::sync::Arc::new(application_settings.css_file);
@@ -105,6 +105,7 @@ unsafe fn startup(application: &gtk::Application, launcher_cell: Rc<RefCell<Laun
             .expect("Error getting pathbuf for css provider"),
         launcher_cell.clone(),
     );
+    
     let mut launcher = launcher_cell.borrow_mut();
     launcher.reload_css();
     launcher.state = launcher::State::Hidden;

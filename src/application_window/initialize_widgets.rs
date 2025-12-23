@@ -15,10 +15,14 @@ pub fn root(
 ) {
     let root_box = gtk::Box::new(gtk::Orientation::Vertical, 9);
     root_box.add_css_class("root");
-    root_box.append(&topbar(launcher_cell.clone(), icon_theme));
+    let topbar = &topbar(launcher_cell.clone(), icon_theme, application_window, &root_box);
+    root_box.append(topbar);
     root_box.append(&search_bar(launcher_cell.clone()));
+    
+
     let launcher = launcher_cell.borrow();
     let mut search_result_container = launcher.search_result_container.clone();
+
     drop(launcher);
     search_result_container.attach_result_box_handlers(event_handler::attach_result_box_handlers, launcher_cell.clone());
     search_result_container.attach_scroll_bar_handler(event_handler::results_scroll_handler, launcher_cell);
@@ -26,7 +30,11 @@ pub fn root(
     application_window.set_child(Some(&root_box));
 }
 
-fn topbar(launcher: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::CenterBox {
+fn topbar(
+        launcher: Rc<RefCell<Launcher>>, 
+        icon_theme: &gtk::IconTheme, 
+        application_window: &gtk::ApplicationWindow,
+        root_box: &gtk::Box) -> gtk::CenterBox {
     let topbar = gtk::CenterBox::builder()
         .orientation(gtk::Orientation::Horizontal)
         .build();
@@ -35,7 +43,7 @@ fn topbar(launcher: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::
     topbar.set_center_widget(Some(&ClockWidget::new(monitor_cell)));
     let right = gtk::Box::new(gtk::Orientation::Horizontal, 0);
 
-    right.append(&volume_button(launcher.clone(), icon_theme));
+    right.append(&volume_button(launcher.clone(), icon_theme, application_window, &right));
     right.append(&screenshot_button(launcher, icon_theme));
     topbar.set_end_widget(Some(&right));
     topbar
@@ -108,13 +116,14 @@ fn screenshot_button(
 fn volume_button(
     launcher_cell: Rc<RefCell<Launcher>>,
     icon_theme: &gtk::IconTheme,
+    application_window: &gtk::ApplicationWindow,
+    root_box: &gtk::Box
 ) -> VolumeControl {
     let mut launcher = launcher_cell.borrow_mut();
 
-    let volume_button = VolumeControl::new(icon_theme);
+    let volume_button = VolumeControl::new(icon_theme, &application_window.clone(), root_box);
 
-    event_handler::attach_volume_handlers(launcher_cell.clone(), volume_button.clone());
-
+    event_handler::attach_volume_handlers(launcher_cell.clone(), volume_button.clone(), application_window.clone());
     volume_button.set_focusable(true);
     volume_button.add_css_class("volume-button");
     volume_button
