@@ -61,6 +61,9 @@ impl VolumeControl {
         volume_icon.set_parent(&obj);
         popover.set_position(gtk::PositionType::Top);
         popover.set_has_arrow(true);
+
+        // todo: investigate setting this to false breaks motion controller, but setting true
+        // causes popup to be hidden twice. see search_bar connect_has_focus_notify spam in console.
         popover.set_autohide(true);
 
         let popover_connect_show = popover.clone();
@@ -75,8 +78,10 @@ impl VolumeControl {
 
         let application_window_connect_show = application_window.clone();
         popover.connect_show(move |_: &gtk::Popover| {
-           // popover_connect_show.set_parent(&application_window);
+
+            // must set this to have pointer events fire
             application_window_connect_show.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
+
             popover_connect_show.queue_resize();
             let bounds = volume_icon_connect_show.compute_bounds(&application_window_connect_show).expect(
                 "could not compute bounds of volume popover");
@@ -87,6 +92,7 @@ impl VolumeControl {
 
         let focus_on_hide = focus_on_hide.clone();
         popover.connect_hide(move |_: &gtk::Popover| {
+            println!("popover.connect_hide()");
             focus_on_hide.grab_focus();
         });
   

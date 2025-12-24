@@ -15,6 +15,7 @@ use crate::launcher::RESULT_ENTRY_COUNT;
 pub struct Launcher {
     pub state: State,
     pub css_provider: Option<(std::sync::Arc<gio::File>, gtk::CssProvider)>,
+    pub window_width_css_provider: gtk::CssProvider,
     pub search_result_container: SearchResultContainer,
     pub selected_search_idx: Option<isize>,
     pub search_bar: Rc<gtk::Entry>,
@@ -30,11 +31,14 @@ pub struct Launcher {
 }
 
 impl Launcher {
+    pub const SCREEN_WIDTH_RATIO: f32 = 0.40;
+
     pub fn uninitialized() -> Self {
         Launcher {
             state: State::NotStarted,
             css_provider: None,
             search_result_container: SearchResultContainer::new(),
+            window_width_css_provider: gtk::CssProvider::new(),
             selected_search_idx: None,
             search_bar: Default::default(),
             user_desktop_files: None,
