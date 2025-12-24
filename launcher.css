@@ -30,6 +30,29 @@ window {
 	color: @button-inactive;
 	margin-top: 1em;
 	margin-right: 1em;
+	background-origin: padding-box;
+	padding: 0px;
+	outline-width: 0px;
+	outline-offset: -3px;
+	outline-style: dashed;
+}
+
+* {
+	-gtk-icon-size: 1.6em;
+}
+
+.right-box {
+	padding: 0px;
+	outline-width: 0px;
+	outline-offset: -3px;
+	outline-style: dashed;
+}
+
+image {
+	padding: 0px;
+	outline-width: 0px;
+	outline-offset: -3px;
+	outline-style: dashed;
 }
 
 .screenshot-button:focus {
@@ -47,7 +70,7 @@ window {
 }
 
 .popover-box {
-	background-color: shade(@main-color, 0.9);
+	background-color: shade(@main-color, 0.95);
 }
 
 .clock {

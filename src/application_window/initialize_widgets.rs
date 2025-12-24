@@ -43,6 +43,7 @@ fn topbar(
     let monitor_cell = launcher.borrow().current_monitor.clone();
     topbar.set_center_widget(Some(&ClockWidget::new(monitor_cell)));
     let right = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    right.add_css_class("right-box");
 
     right.append(&volume_button(launcher.clone(), icon_theme, application_window, focus_on_panel_hide));
     right.append(&screenshot_button(launcher, icon_theme));

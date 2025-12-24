@@ -145,7 +145,7 @@ fn attach_popover_motion_controller(
         if popover_bounds.width() == 0.0 || popover_bounds.height() == 0.0 {
             return;
         }
-        let max_y = -popover_bounds.y() + volume_icon_bounds.y() + volume_icon_bounds.height() * 1.5;
+        let max_y = -popover_bounds.y() + volume_icon_bounds.y() + volume_icon_bounds.height() * 1.7;
         if y < 0.0 || x < 0.0 || x > popover_bounds.width().into() || y > max_y.into() {
             application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
             popover_motion.hide();
