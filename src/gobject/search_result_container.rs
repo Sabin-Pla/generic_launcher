@@ -119,8 +119,15 @@ impl SearchResultContainer {
         result_box_container.result_boxes.borrow()[idx].clone()
     }
 
-    pub fn hide(&self) {
-        self.set_visible(false);
+    pub fn hide(&self, indexes: Option<std::ops::Range<usize>>) {
+        match indexes {
+            Some(range) => {
+                for i in range {
+                    self.index(i).hide();
+                }
+            }
+            None => self.set_visible(false)
+        }
     }
 
     pub fn show(&self) {

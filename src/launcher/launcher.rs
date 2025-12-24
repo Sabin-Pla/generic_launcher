@@ -116,7 +116,7 @@ impl Launcher {
     }
 
     pub fn hide_search_results_container(&self) {
-        self.search_result_container.hide();
+        self.search_result_container.hide(None);
     }
 
      pub fn show_search_results_container(&self) {
@@ -139,13 +139,16 @@ impl Launcher {
     pub fn display_search_results(&mut self, result_idx: Option<usize>) {
         let mut counter = 0;
         let result_idx = result_idx.unwrap_or(0);
-        for (idx, desktop_idx) in self.search_results_cache[result_idx..].iter().enumerate() {
+        let results = self.search_results_cache[result_idx..].iter();
+        println!("results len: {}", results.len());
+        for (idx, desktop_idx) in results.clone().enumerate() {
             if counter >= RESULT_ENTRY_COUNT {
                 break;
             }
             self.set_search_result_box(*desktop_idx, counter, idx+result_idx);
             counter += 1;
         }
+        self.search_result_container.hide(Some(results.len()..RESULT_ENTRY_COUNT));
     }
 }
 
