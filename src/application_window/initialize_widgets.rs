@@ -14,10 +14,11 @@ pub fn root(
     icon_theme: &gtk::IconTheme,
 ) {
     let root_box = gtk::Box::new(gtk::Orientation::Vertical, 9);
+    let search_bar = search_bar(launcher_cell.clone());
     root_box.add_css_class("root");
-    let topbar = &topbar(launcher_cell.clone(), icon_theme, application_window, &root_box);
+    let topbar = &topbar(launcher_cell.clone(), icon_theme, application_window, &search_bar);
     root_box.append(topbar);
-    root_box.append(&search_bar(launcher_cell.clone()));
+    root_box.append(&search_bar);
     
 
     let launcher = launcher_cell.borrow();
@@ -34,7 +35,7 @@ fn topbar(
         launcher: Rc<RefCell<Launcher>>, 
         icon_theme: &gtk::IconTheme, 
         application_window: &gtk::ApplicationWindow,
-        root_box: &gtk::Box) -> gtk::CenterBox {
+        focus_on_panel_hide: &impl IsA<gtk::Widget>) -> gtk::CenterBox {
     let topbar = gtk::CenterBox::builder()
         .orientation(gtk::Orientation::Horizontal)
         .build();
@@ -43,7 +44,7 @@ fn topbar(
     topbar.set_center_widget(Some(&ClockWidget::new(monitor_cell)));
     let right = gtk::Box::new(gtk::Orientation::Horizontal, 0);
 
-    right.append(&volume_button(launcher.clone(), icon_theme, application_window, &right));
+    right.append(&volume_button(launcher.clone(), icon_theme, application_window, focus_on_panel_hide));
     right.append(&screenshot_button(launcher, icon_theme));
     topbar.set_end_widget(Some(&right));
     topbar
@@ -117,11 +118,11 @@ fn volume_button(
     launcher_cell: Rc<RefCell<Launcher>>,
     icon_theme: &gtk::IconTheme,
     application_window: &gtk::ApplicationWindow,
-    root_box: &gtk::Box
+    focus_on_panel_hide: &impl IsA<gtk::Widget>
 ) -> VolumeControl {
     let mut launcher = launcher_cell.borrow_mut();
 
-    let volume_button = VolumeControl::new(icon_theme, &application_window.clone(), root_box);
+    let volume_button = VolumeControl::new(icon_theme, &application_window.clone(), focus_on_panel_hide);
 
     event_handler::attach_volume_handlers(launcher_cell.clone(), volume_button.clone(), application_window.clone());
     volume_button.set_focusable(true);

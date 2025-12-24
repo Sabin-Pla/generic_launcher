@@ -5,12 +5,14 @@ use gtk::glib::{Object};
 use gtk::prelude::{Cast, LayoutManagerExt, WidgetExt, BoxExt, PopoverExt};
 use gtk::subclass::prelude::*;
 use gdk::Rectangle;
+ use gtk4_layer_shell::LayerShell;
 
 mod inner {
     use super::*;
 
     #[derive(Default)]
     pub struct VolumeControl { 
+        pub mouse_entered: Rc<RefCell<bool>>,
         pub popover: RefCell<Option<gtk::Popover>>,
     }
 
@@ -37,7 +39,10 @@ glib::wrapper! {
 }
 
 impl VolumeControl {
-    pub fn new(icon_theme: &gtk::IconTheme, application_window: &gtk::ApplicationWindow, attachment: &gtk::Box) -> Self {
+    pub fn new(
+            icon_theme: &gtk::IconTheme, 
+            application_window: &gtk::ApplicationWindow, 
+            focus_on_hide: &impl gdk::prelude::IsA<gtk::Widget>) -> Self {
         let obj = Object::new::<Self>();
         let volume_control = &inner::VolumeControl::from_obj(&obj);
         let volume_paintable = icon_theme.lookup_icon(
@@ -55,27 +60,8 @@ impl VolumeControl {
 
         volume_icon.set_parent(&obj);
         popover.set_position(gtk::PositionType::Top);
-        popover.set_has_arrow(false);
-        popover.set_autohide(false);
-
-        use gtk::prelude::GestureDragExt;
-        let drag = gtk::GestureDrag::builder()
-            .propagation_phase(gtk::PropagationPhase::Capture)
-            .build();
-        drag.connect_drag_begin(|g: &gtk::GestureDrag, _, _| {
-            println!("ooo");
-        });
-
-        let click = gtk::GestureClick::builder()
-            .propagation_phase(gtk::PropagationPhase::Target)
-            .build();
-
-        use gtk::prelude::GestureExt;
-        click.connect_pressed(|g: &gtk::GestureClick, _, _, _| {
-            g.set_state(gtk::EventSequenceState::Claimed);
-            println!("oocco");
-        });
-        
+        popover.set_has_arrow(true);
+        popover.set_autohide(true);
 
         let popover_connect_show = popover.clone();
         let obj_connect_show = obj.clone();
@@ -84,32 +70,28 @@ impl VolumeControl {
         let volume_scale = gtk::Scale::with_range(
             gtk::Orientation::Horizontal, 
             0.0, 100.0, 10.0);
-        let s = volume_scale.clone();
+        let volume_scale_connect_show = volume_scale.clone();
         let popover_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
 
-        let pb = popover_box.clone();
+        let application_window_connect_show = application_window.clone();
         popover.connect_show(move |_: &gtk::Popover| {
            // popover_connect_show.set_parent(&application_window);
+            application_window_connect_show.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
             popover_connect_show.queue_resize();
-          //  let bounds = volume_icon_connect_show.compute_bounds(application_window).expect(
-            //    "could not compute bounds of volume popover");
-           // println!("{:?} {:?}", bounds, popover_connect_show.measure());
-            //popover_connect_show.set_offset(0, (bounds.y() / 1.5) as i32);
-             popover_connect_show.set_offset(0, 20);
-            popover_connect_show.set_pointing_to(Some(&gdk::Rectangle::new(0, 0, 50, 50)));
+            let bounds = volume_icon_connect_show.compute_bounds(&application_window_connect_show).expect(
+                "could not compute bounds of volume popover");
+            popover_connect_show.set_offset(0, -bounds.y() as i32);
             obj_connect_show.add_css_class("focused-topbar-button");
-            s.grab_focus();
-            println!("popover allocation: {:?}", popover_connect_show.allocation());
-            println!("popover_box allocation: {:?}", pb.allocation());
+            volume_scale_connect_show.grab_focus();
         });
-        popover.connect_map(|p| {
-            println!("popover mapped, allocation: {:?}", p.allocation());
+
+        let focus_on_hide = focus_on_hide.clone();
+        popover.connect_hide(move |_: &gtk::Popover| {
+            focus_on_hide.grab_focus();
         });
+  
         use gtk::prelude::ObjectExt;
-        let po = popover.clone();
-        popover.connect_notify_local(Some("allocation"), move |_, _| {
-            println!("popover allocation changed: {:?}", po.allocation());
-        });
+
         let obj_connect_close = obj.clone();
         popover.add_css_class("volume-popover");
         popover.connect_closed(move |_: &gtk::Popover | {
@@ -117,54 +99,51 @@ impl VolumeControl {
         });
 
         
-        //popover.set_layout_manager(Some(gtk::BinLayout::new()));
-        // volume_scale.set_focus_on_click(true);
-        //popover_box.append(&volume_scale);
-        volume_scale.set_focusable(true);
-        popover.set_focusable(true);
-        popover_box.set_focusable(true);
-        volume_scale.set_can_focus(true);
-        popover.set_can_focus(true);
-        popover_box.set_can_focus(true);
-        popover_box.set_hexpand(true);
-        popover_box.set_vexpand(true);
         popover_box.add_css_class("popover-box");
-        popover_box.set_size_request(100, 40);
-        popover.set_size_request(100, 40);
-        // popover.set_cascade_popdown(true);
-        // popover.set_child(Some(&volume_scale));
+        popover_box.append(&volume_scale);
 
-        popover.set_hexpand(true);
-        popover.set_vexpand(true);
-        popover.set_default_widget(Some(&popover_box));
+        attach_popover_motion_controller(
+            &popover.clone(), application_window.clone(), volume_icon, obj.clone());
 
-        let ecm = gtk::EventControllerMotion::builder()
-            .propagation_phase(gtk::PropagationPhase::Capture)
-            .build();
+        popover.set_child(Some(&popover_box));
 
-        ecm.connect_enter(|_, _, _| {
-            println!("MOTION");
-        });
-
-        use gtk::prelude::ButtonExt;
-        //popover_box.add_controller(click);
-        popover.add_controller(click);
-        popover.set_size_request(200, 40);
-        let button = gtk::Button::with_label("Click me");
-        button.connect_clicked(|_| println!("clicked!"));
-        //popover_box.append(&button);
-        popover.set_child(Some(&button));
-        use gtk::prelude::WidgetExt;
         popover.set_can_target(true);
-        obj.set_can_target(true);
-        popover_box.set_can_target(true);
-        let po = popover.clone();
+        popover.set_parent(&obj);    
         *volume_control.popover.borrow_mut() = Some(popover) ;
-        po.set_parent(&obj);    
         obj
     }
 
     pub fn get(&self) -> &inner::VolumeControl {
         inner::VolumeControl::from_obj(self)
     }
+}
+
+fn attach_popover_motion_controller(
+        popover: &gtk::Popover,
+        application_window: gtk::ApplicationWindow, 
+        volume_icon: gtk::Image,
+        volume_control_obj: VolumeControl) {
+
+    let popover_motion = popover.clone();
+    let obj_motion = volume_control_obj.clone();
+    let ecm = gtk::EventControllerMotion::builder()
+        .propagation_phase(gtk::PropagationPhase::Capture)
+        .build();
+
+    ecm.connect_motion(move  |ecm: &gtk::EventControllerMotion, x, y| {
+        let volume_control = &inner::VolumeControl::from_obj(&obj_motion);
+        let volume_icon_bounds = volume_icon.compute_bounds(&application_window)
+            .expect("failed to compute volume icon bounds");
+        let popover_bounds = popover_motion.compute_bounds(&application_window)
+            .expect("failed to compute volume icon bounds");
+        if popover_bounds.width() == 0.0 || popover_bounds.height() == 0.0 {
+            return;
+        }
+        let max_y = -popover_bounds.y() + volume_icon_bounds.y() + volume_icon_bounds.height() * 1.5;
+        if y < 0.0 || x < 0.0 || x > popover_bounds.width().into() || y > max_y.into() {
+            application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
+            popover_motion.hide();
+        }
+    });
+    popover.add_controller(ecm);
 }

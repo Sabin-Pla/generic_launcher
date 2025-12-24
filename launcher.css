@@ -43,6 +43,11 @@ window {
 
 .volume-popover {
 	min-width: 20rem;
+	opacity: 95%;
+}
+
+.popover-box {
+	background-color: shade(@main-color, 0.9);
 }
 
 .clock {

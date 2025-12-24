@@ -53,7 +53,6 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
                 *launcher.current_monitor.borrow_mut() = Some((monitor_width, monitor_height));
                 application_window.set_margin(gtk4_layer_shell::Edge::Left, (monitor_width as f32 * 0.25) as i32);
                 application_window.set_margin(gtk4_layer_shell::Edge::Right, (monitor_width as f32 * 0.25) as i32);
-
                 launcher.hide_search_results_container();
                 let search_bar = launcher.search_bar.clone();
                 drop(launcher);
@@ -85,7 +84,7 @@ unsafe fn startup(application: &gtk::Application, launcher_cell: Rc<RefCell<Laun
     );
     
     // todo!("get state from user config");
-    //application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
+    application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
 
     let mut launcher = launcher_cell.borrow_mut();
     let css_file = std::sync::Arc::new(application_settings.css_file);
