@@ -134,12 +134,6 @@ impl Calendar {
                 .expect("failure computing number of days in previous month"),
         };
 
-    	println!("{} {}/{}, first day is {}", 
-            current_weekday, 
-            current_day, 
-    		last_day_of_month,
-            first_weekday);
-    	
         // the number of days the first day of the month is from the first sunday
         let first_days_from_sunday = first_weekday.num_days_from_sunday();
 
@@ -149,8 +143,8 @@ impl Calendar {
         for i in 0..first_days_from_sunday {
             // add last month's days to calendar
             let day_number = last_month_days as u32 - i;
-            println!("adding day {day_number}");
             let day_box = DayBox::new(day_number);
+            day_box.add_css_class("other-month-daybox");
             col = (first_days_from_sunday - (i+1)) as i32;
             calendar.grid.attach(&day_box, col, row, 1, 1);
         }
@@ -158,7 +152,6 @@ impl Calendar {
         for i in 1..last_day_of_month+1 {
             let day_box = DayBox::new(i as u32);
             if i as u32 == current_day {
-                println!("today {i}");
                 day_box.add_css_class("today");
             }
             col += 1;
@@ -167,6 +160,12 @@ impl Calendar {
                 row += 1;
             }
             calendar.grid.attach(&day_box, col, row, 1, 1);
+        }
+
+        for (next_month_day, i) in (col..7).enumerate() {
+            let day_box = DayBox::new(next_month_day as u32 + 1);
+            day_box.add_css_class("other-month-daybox");
+            calendar.grid.attach(&day_box, i, row, 1, 1);
         }
     }
 
