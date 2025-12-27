@@ -5,6 +5,7 @@ use std::rc::Rc;
 use gtk::glib::{Object};
 use gtk::prelude::{Cast, LayoutManagerExt, WidgetExt};
 use gtk::subclass::prelude::*;
+use glib::prelude::IsA;
 
 use crate::gobject::Calendar;
 
@@ -176,12 +177,17 @@ glib::wrapper! {
 }
 
 impl ClockWidget {
-    pub fn new(monitor_cell: Rc<RefCell<Option<(i32, i32)>>>) -> Self {
+    pub fn new(
+            monitor_cell: Rc<RefCell<Option<(i32, i32)>>>, 
+            application_window: &gtk::ApplicationWindow,
+            focus_on_panel_hide: &impl IsA<gtk::Widget>
+        ) -> Self {
         let obj = Object::new::<Self>();
         
         let clock_widget = inner::ClockWidget::from_obj(&obj);
         let clock_label = &clock_widget.label;
         let calendar = &clock_widget.calendar;
+        calendar.initialize(application_window, focus_on_panel_hide);
 
         let mut layout_manager = obj
             .layout_manager()
@@ -223,7 +229,7 @@ impl ClockLayout {
 
 fn get_time_str() -> String {
     let date_time = chrono::offset::Local::now();
-    format!("{}", date_time.format("%a %d/%B %Y %H:%M:%S"))
+    format!("{}", date_time.format_localized("%a %d/%B %Y %H:%M:%S", chrono::Locale::default()))
 }
 
 fn set_clock_time(clock: &gtk::Label) {

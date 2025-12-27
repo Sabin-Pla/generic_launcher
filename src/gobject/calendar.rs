@@ -7,6 +7,7 @@ use gtk::subclass::prelude::*;
 
 use chrono::{Month, Datelike};
 use gtk::prelude::{BoxExt, GridExt, PopoverExt};
+use gtk4_layer_shell::LayerShell;
 
 mod inner {
     use super::*;
@@ -39,7 +40,10 @@ mod inner {
 
     impl WidgetImpl for Calendar {}
 
-    pub struct DayBox {}
+    #[derive(Default)]
+    pub struct DayBox {
+        pub label: gtk::Label
+    }
 
     #[gtk::glib::object_subclass]
     impl ObjectSubclass for DayBox {
@@ -48,7 +52,9 @@ mod inner {
         type ParentType = gtk::Widget;
 
         fn new() -> Self {
-            Self {}
+            Self {
+                ..Default::default()
+            }
         }
     }
 
@@ -60,6 +66,42 @@ mod inner {
     }
 
     impl WidgetImpl for DayBox {}
+
+
+    pub struct DayMarking {}
+
+    #[gtk::glib::object_subclass]
+    impl ObjectSubclass for DayMarking {
+        const NAME: &'static str = "DayMarking";
+        type Type = super::DayMarking;
+        type ParentType = gtk::Widget;
+
+        fn new() -> Self {
+            Self {}
+        }
+    }
+
+    impl ObjectImpl for DayMarking {}
+    impl WidgetImpl for DayMarking {}
+
+
+    pub struct Badge {}
+
+    #[gtk::glib::object_subclass]
+    impl ObjectSubclass for Badge {
+        const NAME: &'static str = "Badge";
+        type Type = super::Badge;
+        type ParentType = gtk::Widget;
+
+        fn new() -> Self {
+            Self {}
+        }
+    }
+
+    impl ObjectImpl for Badge {}
+
+    impl WidgetImpl for Badge {}
+
 
 }
 
@@ -73,42 +115,78 @@ glib::wrapper! {
     @extends gtk::Widget, gtk::ConstraintTarget, gtk::Buildable, gtk::Accessible;
 }
 
-impl DayBox {
-    pub fn new(day_number: u32) -> Self {
+glib::wrapper! {
+    pub struct DayMarking(ObjectSubclass<inner::DayMarking>)
+    @extends gtk::Widget, gtk::ConstraintTarget, gtk::Buildable, gtk::Accessible;
+}
+
+glib::wrapper! {
+    pub struct Badge(ObjectSubclass<inner::Badge>)
+    @extends gtk::Widget, gtk::ConstraintTarget, gtk::Buildable, gtk::Accessible;
+}
+
+impl Badge {
+    pub fn new() -> Self {
         let obj =  glib::Object::new::<Self>();
-        obj.add_css_class("calendar-daybox");
-        let day_label = gtk::Label::new(Some(&day_number.to_string()));
-        day_label.set_parent(&obj);
+        obj.add_css_class("note-badge");
+        obj.set_halign(gtk::Align::End);    
+        obj.set_valign(gtk::Align::Start);
         obj
     }
 }
 
-impl Calendar {
-    pub fn new(
-        //    application_window: &gtk::ApplicationWindow,
-        //    focus_on_hide: &impl gdk::prelude::IsA<gtk::Widget>
-        ) -> Self {
 
+impl DayMarking {
+    pub fn new() -> Self {
+        let obj =  glib::Object::new::<Self>();
+        obj.add_css_class("day-marking");
+        obj
+    }
+}
+
+impl DayBox {
+    pub fn new(day_number: u32) -> Self {
+        let obj =  glib::Object::new::<Self>();
+        obj.add_css_class("calendar-daybox");
+        let daybox_inner = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        daybox_inner.add_css_class("daybox-inner");
+        let day_box = inner::DayBox::from_obj(&obj);
+        day_box.label.set_text(&day_number.to_string());
+        daybox_inner.append(&day_box.label);
+
+        let day_marking = DayMarking::new(); 
+        day_marking.add_css_class("marking-color1");
+        let overlay = gtk::Overlay::new();
+        let badge = Badge::new();
+        overlay.add_overlay(&badge);
+        overlay.set_parent(&obj);
+        daybox_inner.append(&day_marking);
+        if day_number > 21 && day_number < 25 {
+            let day_marking = DayMarking::new();  
+            day_marking.add_css_class("marking-color2");
+            daybox_inner.append(&day_marking);
+            let day_marking = DayMarking::new();  
+            day_marking.add_css_class("marking-color3");
+            daybox_inner.append(&day_marking);
+            let more_markings_ellipsis = gtk::Label::new(Some("..."));
+            more_markings_ellipsis.add_css_class(&format!("more-markings-ellipsis"));
+            daybox_inner.append(&more_markings_ellipsis);
+        }
+        daybox_inner.set_parent(&obj);
+        obj
+    }
+
+    pub fn set_day_text(&self, day_number: u32) {
+        let day_box = inner::DayBox::from_obj(&self);
+        day_box.label.set_text(&day_number.to_string());
+    }
+}
+
+impl Calendar {
+    pub fn new() -> Self {
         let obj = glib::Object::new::<Self>();
         let calendar = inner::Calendar::from_obj(&obj);
         calendar.popover.set_parent(&obj);
-        /*
-        let application_window_connect_show = application_window.clone();
-        popover.connect_show(move |_: &gtk::Popover| {
-            // must set this to have pointer events fire
-            application_window_connect_show.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
-        });
-
-        let application_window_connect_hide = application_window.clone();
-        let focus_on_hide = focus_on_hide.clone();
-        popover.connect_hide(move |_: &gtk::Popover| {
-            application_window_connect_hide.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
-            focus_on_hide.grab_focus();
-        });
-        */
-
-        // let day_box = DayBox::new();
-        //calendar.grid.attach(&day_box, 0, 0, 1, 1);
         let calendar_inner = gtk::Box::new(gtk::Orientation::Vertical, 0);
         calendar_inner.append(&calendar.grid);
         calendar_inner.add_css_class("calendar-inner");
@@ -137,7 +215,7 @@ impl Calendar {
         // the number of days the first day of the month is from the first sunday
         let first_days_from_sunday = first_weekday.num_days_from_sunday();
 
-        create_weekday_boxes(&calendar.grid);
+        attach_weekday_boxes(&calendar.grid);
         let mut row = 1;
         let mut col = 0;
         for i in 0..first_days_from_sunday {
@@ -174,10 +252,54 @@ impl Calendar {
         self.update();
         calendar.popover.popup();
     }
+
+    pub fn initialize(&self,
+        application_window: &gtk::ApplicationWindow, 
+        focus_on_hide: &impl gdk::prelude::IsA<gtk::Widget>) {
+
+        let calendar = &inner::Calendar::from_obj(self);
+
+        let obj = self.clone();
+        let provider = gtk::CssProvider::new();
+        provider.load_from_string(&format!("
+.marking-color1 {{ background-color: limegreen; }}
+.marking-color2 {{ background-color: red; }}
+.marking-color3 {{ background-color: orange; }}
+.more-markings-ellipsis {{ line-height: 1px; }}"));
+        gtk::style_context_add_provider_for_display(
+            &obj.display(),
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+        ); 
+
+        let application_window_connect_show = application_window.clone();
+        calendar.popover.connect_show(move |_: &gtk::Popover| {
+            // must set this to have pointer events fire
+            let calendar = &inner::Calendar::from_obj(&obj);
+            let bounds = obj.compute_bounds(&application_window_connect_show).expect(
+                "could not compute bounds of volume popover");
+            calendar.popover.set_offset(0, -bounds.y() as i32);
+            application_window_connect_show.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
+        });
+
+        let application_window_connect_hide = application_window.clone();
+        let focus_on_hide = focus_on_hide.clone();
+        calendar.popover.connect_hide(move |_: &gtk::Popover| {
+            application_window_connect_hide.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
+            focus_on_hide.grab_focus();
+        });
+    }
 }
 
-fn create_weekday_boxes(grid: &gtk::Grid) {
+fn create_day_boxes(grid: &gtk::Grid) {
+
+}
+
+fn attach_weekday_boxes(grid: &gtk::Grid) {
     let day_labels_en = ["S", "M", "T", "W", "T", "F", "S"];
+    // TODO: ユーザーのPCのロケールが日本語または中国語の場合は以下を使用する
+    // let day_labels_zhjp = ["日", "月", "火", "水", "木", "金", "土"];
+
     for (i, weekday) in day_labels_en.iter().enumerate() {
         let label = gtk::Label::new(Some(weekday));
         label.add_css_class("weekday-label");

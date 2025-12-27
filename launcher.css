@@ -23,20 +23,19 @@ window {
 .calendar-inner {
 	padding: 0.4rem;
 	margin: 0.4rem;
-	background-color: mix(@main-color, @result-unselected, 0.1);
+	background-color: mix(@main-color, @result-unselected, 0.05);
 }
 
 .calendar-daybox {
-	margin: 0.4rem;
-	min-width: 2.4rem;
-	min-height: 3.0rem;
-	background-color: mix(@main-color, @theme_fg_color, 0.3);
-	font-size: 1.4rem;
-	border-radius: 20%;
+	margin: 0.2rem;
+	min-width: 3.2rem;
+	background-color: mix(@main-color, @theme_fg_color, 0.2);
+	font-size: 1.3rem;
+	border-radius: 15%;
 }	
 
 .other-month-daybox {
-	background-color: mix(@main-color, @theme_fg_color, 0.1);
+	background-color: mix(@main-color, @theme_fg_color, 0.05);
 }
 
 .today {
@@ -48,6 +47,26 @@ window {
 	color: @theme_selected_fg_color;
     background-color: @theme_selected_bg_color;
 }
+
+.day-marking {
+	min-height: 0.2em;
+	margin-bottom: 0.1em;
+	opacity: 40%;
+}
+
+.daybox-inner {
+	margin: 0.4em;
+	margin-top: 0.6em;
+}
+
+.note-badge {
+	min-width: 0.2em;
+	min-height: 0.2em;
+	border-radius: 50%;
+	margin: 0.3em 0.3em 0 0;
+	background-color: @theme_fg_color;
+}
+
 
 .weekday-label {
 	color: @theme_unfocused_text_color;
