@@ -5,14 +5,15 @@ use gtk::glib::{Object};
 use gtk::prelude::{Cast, LayoutManagerExt, WidgetExt, BoxExt, PopoverExt};
 use gtk::subclass::prelude::*;
 use gdk::Rectangle;
- use gtk4_layer_shell::LayerShell;
+use gtk4_layer_shell::LayerShell;
+
+use crate::volume_mixer;
 
 mod inner {
     use super::*;
 
     #[derive(Default)]
     pub struct VolumeControl { 
-        pub mouse_entered: Rc<RefCell<bool>>,
         pub popover: RefCell<Option<gtk::Popover>>,
     }
 
@@ -65,7 +66,7 @@ impl VolumeControl {
         // todo: investigate setting this to false breaks motion controller, but setting true
         // causes popup to be hidden twice. see search_bar connect_has_focus_notify spam in console.
         popover.set_autohide(true);
-
+        
         let popover_connect_show = popover.clone();
         let obj_connect_show = obj.clone();
         let volume_icon_connect_show = volume_icon.clone();
@@ -78,10 +79,9 @@ impl VolumeControl {
 
         let application_window_connect_show = application_window.clone();
         popover.connect_show(move |_: &gtk::Popover| {
-
+            volume_mixer::get_audio_registry();
             // must set this to have pointer events fire
             application_window_connect_show.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
-
             popover_connect_show.queue_resize();
             let bounds = volume_icon_connect_show.compute_bounds(&application_window_connect_show).expect(
                 "could not compute bounds of volume popover");
@@ -90,9 +90,11 @@ impl VolumeControl {
             volume_scale_connect_show.grab_focus();
         });
 
+        let application_window_connect_hide = application_window.clone();
         let focus_on_hide = focus_on_hide.clone();
         popover.connect_hide(move |_: &gtk::Popover| {
             println!("popover.connect_hide()");
+            application_window_connect_hide.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
             focus_on_hide.grab_focus();
         });
   

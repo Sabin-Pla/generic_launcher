@@ -66,13 +66,13 @@ pub fn attach_volume_handlers(
     application_window: gtk::ApplicationWindow
 ) {
     let ecm = gtk::EventControllerMotion::builder()
-        .propagation_phase(gtk::PropagationPhase::Bubble)
+        .propagation_phase(gtk::PropagationPhase::Capture)
         .build();
 
     let launcher_cell_focus_notify = launcher;
     let volume_control_button_enter = volume_control_button.clone();
 
-    let volume_enter_handler = move |_: &gtk::EventControllerMotion, _: f64, _: f64| {
+    let volume_enter_handler = move |_: &gtk::EventControllerMotion, x: f64, y: f64| {
         let popover = volume_control_button_enter.get().popover.borrow();
         let popover = popover.as_ref().unwrap();
         popover.popup();
@@ -205,7 +205,7 @@ pub fn attach_search_bar_handlers(
     });
 
     search_bar.connect_has_focus_notify(move |_| {
-        println!("search_bar connect_has_focus_notify");
+        println!("search_bar connect_has_focus_notify()");
         let mut launcher = launcher_cell.borrow_mut();
         launcher.selected_search_idx = None;
     });

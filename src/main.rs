@@ -5,6 +5,7 @@ mod search;
 mod user_config;
 mod utils;
 mod xdg_desktop_entry;
+mod volume_mixer;
 
 use std::cell::RefCell;
 use std::rc::Rc;

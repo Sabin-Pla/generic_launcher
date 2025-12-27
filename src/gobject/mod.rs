@@ -1,3 +1,4 @@
+mod calendar;
 mod clock_widget;
 mod search_entry_buffer;
 mod search_entry_im_context;
@@ -5,6 +6,7 @@ mod search_result_box;
 mod search_result_container;
 mod volume_control;
 
+pub use calendar::Calendar;
 pub use clock_widget::ClockWidget;
 pub use search_entry_buffer::SearchEntryBuffer;
 pub use search_entry_im_context::SearchEntryIMContext;
