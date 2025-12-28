@@ -26,6 +26,9 @@ window {
 	background-color: mix(@main-color, @result-unselected, 0.05);
 }
 
+.marking-color1 { background-color: limegreen; }
+.marking-color2 { background-color: red; }
+
 .calendar-daybox {
 	margin: 0.2rem;
 	min-width: 3.2rem;

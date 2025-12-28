@@ -40,9 +40,9 @@ mod inner {
 
     impl WidgetImpl for Calendar {}
 
-    #[derive(Default)]
     pub struct DayBox {
-        pub label: gtk::Label
+        pub label: gtk::Label,
+        pub marking: RefCell<(super::DayMarking, MarkingCycle)>
     }
 
     #[gtk::glib::object_subclass]
@@ -52,8 +52,11 @@ mod inner {
         type ParentType = gtk::Widget;
 
         fn new() -> Self {
+            let mut marking_cycle = MarkingType::cycle();
+            marking_cycle.next();
             Self {
-                ..Default::default()
+                label: Default::default(),
+                marking: (super::DayMarking::new(), marking_cycle).into()
             }
         }
     }
@@ -144,34 +147,45 @@ impl DayMarking {
     }
 }
 
+enum MarkingType {
+    None,
+    One,
+    Two,
+}
+
+type MarkingCycle = std::iter::Cycle<std::slice::Iter<'static, MarkingType>>;
+
+impl MarkingType {
+    fn cycle() -> MarkingCycle {
+        [Self::None, Self::One, Self::Two].iter().cycle()
+    }
+
+    fn set_css(&self, day_marking: &DayMarking) {
+        match self {
+            Self::None => day_marking.remove_css_class("marking-color2"),
+            Self::One => day_marking.add_css_class("marking-color1"),
+            Self::Two => {
+                day_marking.add_css_class("marking-color2"); 
+                day_marking.remove_css_class("marking-color1");
+            }
+        }
+    }
+}
+
 impl DayBox {
-    pub fn new(day_number: u32) -> Self {
+    pub fn new() -> Self {
         let obj =  glib::Object::new::<Self>();
         obj.add_css_class("calendar-daybox");
         let daybox_inner = gtk::Box::new(gtk::Orientation::Vertical, 0);
         daybox_inner.add_css_class("daybox-inner");
         let day_box = inner::DayBox::from_obj(&obj);
-        day_box.label.set_text(&day_number.to_string());
         daybox_inner.append(&day_box.label);
 
-        let day_marking = DayMarking::new(); 
-        day_marking.add_css_class("marking-color1");
         let overlay = gtk::Overlay::new();
         let badge = Badge::new();
         overlay.add_overlay(&badge);
         overlay.set_parent(&obj);
-        daybox_inner.append(&day_marking);
-        if day_number > 21 && day_number < 25 {
-            let day_marking = DayMarking::new();  
-            day_marking.add_css_class("marking-color2");
-            daybox_inner.append(&day_marking);
-            let day_marking = DayMarking::new();  
-            day_marking.add_css_class("marking-color3");
-            daybox_inner.append(&day_marking);
-            let more_markings_ellipsis = gtk::Label::new(Some("..."));
-            more_markings_ellipsis.add_css_class(&format!("more-markings-ellipsis"));
-            daybox_inner.append(&more_markings_ellipsis);
-        }
+        daybox_inner.append(&day_box.marking.borrow().0);
         daybox_inner.set_parent(&obj);
         obj
     }
@@ -180,6 +194,13 @@ impl DayBox {
         let day_box = inner::DayBox::from_obj(&self);
         day_box.label.set_text(&day_number.to_string());
     }
+
+    pub fn toggle_marker(&self) {
+        let day_box = inner::DayBox::from_obj(&self);
+        let mut marking = day_box.marking.borrow_mut();
+        marking.1.next().unwrap().set_css(&marking.0);
+    }
+
 }
 
 impl Calendar {
@@ -215,35 +236,41 @@ impl Calendar {
         // the number of days the first day of the month is from the first sunday
         let first_days_from_sunday = first_weekday.num_days_from_sunday();
 
-        attach_weekday_boxes(&calendar.grid);
+        let get_daybox = |col, row| -> DayBox {
+            calendar.grid.child_at(col, row).expect("invalid calendar grid (1)")
+                .clone()
+                .downcast::<DayBox>()
+                .expect("Calendar contains non-DayBox widget")
+        };
+
         let mut row = 1;
         let mut col = 0;
         for i in 0..first_days_from_sunday {
             // add last month's days to calendar
             let day_number = last_month_days as u32 - i;
-            let day_box = DayBox::new(day_number);
-            day_box.add_css_class("other-month-daybox");
             col = (first_days_from_sunday - (i+1)) as i32;
-            calendar.grid.attach(&day_box, col, row, 1, 1);
+            let day_box = get_daybox(col, row);
+            day_box.set_day_text(day_number);
+            day_box.add_css_class("other-month-daybox");
         }
 
         for i in 1..last_day_of_month+1 {
-            let day_box = DayBox::new(i as u32);
-            if i as u32 == current_day {
-                day_box.add_css_class("today");
-            }
             col += 1;
             if col == 7 {
                 col = 0;
                 row += 1;
             }
-            calendar.grid.attach(&day_box, col, row, 1, 1);
+            let day_box =  get_daybox(col, row);;
+            day_box.set_day_text(i as u32);
+            if i as u32 == current_day {
+                day_box.add_css_class("today");
+            }
         }
 
         for (next_month_day, i) in (col..7).enumerate() {
-            let day_box = DayBox::new(next_month_day as u32 + 1);
+            let day_box =  get_daybox(i, row);
             day_box.add_css_class("other-month-daybox");
-            calendar.grid.attach(&day_box, i, row, 1, 1);
+            day_box.set_day_text(next_month_day as u32 + 1);
         }
     }
 
@@ -260,17 +287,24 @@ impl Calendar {
         let calendar = &inner::Calendar::from_obj(self);
 
         let obj = self.clone();
-        let provider = gtk::CssProvider::new();
-        provider.load_from_string(&format!("
-.marking-color1 {{ background-color: limegreen; }}
-.marking-color2 {{ background-color: red; }}
-.marking-color3 {{ background-color: orange; }}
-.more-markings-ellipsis {{ line-height: 1px; }}"));
-        gtk::style_context_add_provider_for_display(
-            &obj.display(),
-            &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
-        ); 
+
+        let popover_click = calendar.popover.clone();
+        let calendar_click_handler = move |_gc: &gtk::GestureClick, _: i32, x: f64, y: f64| {
+            let mut w = popover_click.pick(x, y, gtk::PickFlags::DEFAULT);
+            while let Some(widget) = w {
+                if widget.has_css_class("calendar-daybox") {
+                    let day_box = widget.downcast::<DayBox>().expect("non-daybox has css class calendar-daybox");
+                    day_box.toggle_marker();
+                    break;
+                } else if widget.has_css_class("calendar-inner") {
+                    break;
+                }
+                w = widget.parent();
+            }
+        };
+        let gesture_click = gtk::GestureClick::new();
+        gesture_click.connect_pressed(calendar_click_handler);
+        calendar.popover.add_controller(gesture_click);
 
         let application_window_connect_show = application_window.clone();
         calendar.popover.connect_show(move |_: &gtk::Popover| {
@@ -288,11 +322,24 @@ impl Calendar {
             application_window_connect_hide.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
             focus_on_hide.grab_focus();
         });
+
+        attach_weekday_boxes(&calendar.grid);
+        create_day_boxes(&calendar.grid);
     }
 }
 
 fn create_day_boxes(grid: &gtk::Grid) {
-
+    let mut row = 1;
+    let mut col = 0;
+    for i in 0..35 {
+        let day_box = DayBox::new();
+        grid.attach(&day_box, col, row, 1, 1);
+        col += 1;
+        if col == 7 {
+            col = 0;
+            row += 1;
+        }
+    }
 }
 
 fn attach_weekday_boxes(grid: &gtk::Grid) {
