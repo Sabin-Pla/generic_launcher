@@ -116,7 +116,6 @@ mod inner {
         }
 
         fn allocate(&self, widget: &gtk::Widget, width: i32, height: i32, baseline: i32) {
-            use std::borrow::BorrowMut;
             let current_monitor = self.current_monitor.borrow();
             let current_monitor = current_monitor.borrow();
             let current_dimensions =

@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gtk::prelude::{EditableExt, EntryExt, FileExt, GridExt,  WidgetExt};
+use gtk::prelude::{EditableExt, EntryExt, FileExt,  WidgetExt};
 
 use super::State;
-use crate::gobject::{SearchEntryBuffer, SearchResultContainer, SearchResultBox};
+use crate::gobject::{SearchEntryBuffer, SearchResultContainer};
 use crate::search;
 use crate::search::SearchContext;
 use crate::xdg_desktop_entry::XdgDesktopEntry;
@@ -87,8 +87,8 @@ impl Launcher {
         search_result_box.set_idx_in_search_result_vector(search_result_idx);
         search_result_box.set_focusable(true);
         search_result_box.set_visible(true);
-        let app_info = desktop_entry.app_info.clone();
         /*
+        let app_info = desktop_entry.app_info.clone();
         if app_info.has_key("Icon") {
             let icon_name = app_info.locale_string("Icon").unwrap();
             let image = gtk::Image::from_icon_name(&icon_name);
@@ -102,7 +102,6 @@ impl Launcher {
             result_box.set_icon(&icon_name);
         } 
         */
-        let search_result_box = &mut self.search_result_container.index(container_idx);
     }
 
     pub fn reload_css(&mut self) {
@@ -207,7 +206,6 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
 
 pub fn scroll_search_results_up(launcher: Rc<RefCell<Launcher>>) -> bool {
     let mut launcher = launcher.borrow_mut();
-    const END_IDX: isize = (RESULT_ENTRY_COUNT - 1) as isize;
     match launcher.selected_search_idx {
         Some(0) => {
             let prev_search_result_idx = launcher.search_result_container.index(0)

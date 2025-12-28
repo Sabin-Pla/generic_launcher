@@ -1,9 +1,7 @@
 use std::cell::RefCell;
-use std::collections::{HashMap, hash_map};
-use std::rc::Rc;
 
 use gtk::glib::{Object};
-use gtk::prelude::{AdjustmentExt, BoxExt, ButtonExt, LayoutManagerExt, WidgetExt};
+use gtk::prelude::{AdjustmentExt, BoxExt, ButtonExt, WidgetExt};
 use gtk::subclass::prelude::*;
 
 use crate::gobject::SearchResultBox;
@@ -62,7 +60,7 @@ impl SearchResultContainer {
         let mut result_boxes = result_box_container.result_boxes.borrow_mut();
 
         for i in 0..launcher::RESULT_ENTRY_COUNT {
-            let mut result_box = SearchResultBox::new(i);
+            let result_box = SearchResultBox::new(i);
             result_box.set_focusable(true);
             result_box.set_can_focus(true);
             result_box.set_focus_on_click(true);
@@ -81,7 +79,7 @@ impl SearchResultContainer {
 
         let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
         let adjustment = result_box_container.scroll_bar.adjustment();
-        scroll.connect_scroll(move |_, dx, dy| {
+        scroll.connect_scroll(move |_, _dx, dy| {
             adjustment.set_value(adjustment.value() + dy);
             glib::Propagation::Proceed
         });
@@ -123,7 +121,7 @@ impl SearchResultContainer {
         match indexes {
             Some(range) => {
                 for i in range {
-                    self.index(i).hide();
+                    self.index(i).set_visible(false);
                 }
             }
             None => self.set_visible(false)

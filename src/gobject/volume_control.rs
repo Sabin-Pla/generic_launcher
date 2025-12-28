@@ -1,10 +1,8 @@
 use std::cell::RefCell;
-use std::rc::Rc;
 
 use gtk::glib::{Object};
-use gtk::prelude::{Cast, LayoutManagerExt, WidgetExt, BoxExt, PopoverExt};
+use gtk::prelude::{WidgetExt, BoxExt, PopoverExt};
 use gtk::subclass::prelude::*;
-use gdk::Rectangle;
 use gtk4_layer_shell::LayerShell;
 
 use crate::volume_mixer;
@@ -79,7 +77,8 @@ impl VolumeControl {
 
         let application_window_connect_show = application_window.clone();
         popover.connect_show(move |_: &gtk::Popover| {
-            volume_mixer::get_audio_registry();
+            // todo: use this when the mixer is implemented:
+            let _ = volume_mixer::get_audio_registry();
             // must set this to have pointer events fire
             application_window_connect_show.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
             popover_connect_show.queue_resize();
@@ -98,8 +97,6 @@ impl VolumeControl {
             focus_on_hide.grab_focus();
         });
   
-        use gtk::prelude::ObjectExt;
-
         let obj_connect_close = obj.clone();
         popover.add_css_class("volume-popover");
         popover.connect_closed(move |_: &gtk::Popover | {
@@ -111,7 +108,7 @@ impl VolumeControl {
         popover_box.append(&volume_scale);
 
         attach_popover_motion_controller(
-            &popover.clone(), application_window.clone(), volume_icon, obj.clone());
+            &popover.clone(), application_window.clone(), volume_icon);
 
         popover.set_child(Some(&popover_box));
 
@@ -129,17 +126,14 @@ impl VolumeControl {
 fn attach_popover_motion_controller(
         popover: &gtk::Popover,
         application_window: gtk::ApplicationWindow, 
-        volume_icon: gtk::Image,
-        volume_control_obj: VolumeControl) {
+        volume_icon: gtk::Image) {
 
     let popover_motion = popover.clone();
-    let obj_motion = volume_control_obj.clone();
     let ecm = gtk::EventControllerMotion::builder()
         .propagation_phase(gtk::PropagationPhase::Capture)
         .build();
 
-    ecm.connect_motion(move  |ecm: &gtk::EventControllerMotion, x, y| {
-        let volume_control = &inner::VolumeControl::from_obj(&obj_motion);
+    ecm.connect_motion(move  |_ecm: &gtk::EventControllerMotion, x, y| {
         let volume_icon_bounds = volume_icon.compute_bounds(&application_window)
             .expect("failed to compute volume icon bounds");
         let popover_bounds = popover_motion.compute_bounds(&application_window)
@@ -150,7 +144,7 @@ fn attach_popover_motion_controller(
         let max_y = -popover_bounds.y() + volume_icon_bounds.y() + volume_icon_bounds.height() * 1.7;
         if y < 0.0 || x < 0.0 || x > popover_bounds.width().into() || y > max_y.into() {
             application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
-            popover_motion.hide();
+            popover_motion.popdown();
         }
     });
     popover.add_controller(ecm);

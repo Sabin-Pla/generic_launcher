@@ -40,7 +40,7 @@ fn pipe_writer_thread(watch_path: &Path, pipe_box: Box<dyn Fn(i32) -> (i32, [c_c
     }
 }
 
-pub fn attach(css_path: &Path, launcher_cell: Rc<RefCell<Launcher>>) {
+pub fn attach(_css_path: &Path, launcher_cell: Rc<RefCell<Launcher>>) {
     use gtk::prelude::FileExt;
     let launcher = launcher_cell.borrow_mut();
     let css_path = launcher.css_provider.clone().unwrap().0;

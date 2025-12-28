@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::gobject::{ClockWidget, SearchEntryIMContext, SearchResultBox, VolumeControl};
-use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};
+use crate::gobject::{ClockWidget, VolumeControl};
+use crate::launcher::{Launcher};
 use crate::{SearchEntryBuffer, xdg_desktop_entry};
 use gtk::prelude::*;
 
@@ -22,7 +22,7 @@ pub fn root(
     
 
     let launcher = launcher_cell.borrow();
-    let mut search_result_container = launcher.search_result_container.clone();
+    let search_result_container = launcher.search_result_container.clone();
 
     drop(launcher);
     search_result_container.attach_result_box_handlers(event_handler::attach_result_box_handlers, launcher_cell.clone());
@@ -52,7 +52,6 @@ fn topbar(
 }
 
 fn search_bar(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
-    let launcher_cell_search_entry = launcher_cell.clone();
     let mut launcher = launcher_cell.borrow_mut();
 
     let xdg_desktop_entries = xdg_desktop_entry::get_xdg_desktop_entries();
@@ -85,7 +84,7 @@ fn search_bar(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
     drop(launcher);
     search_bar.set_placeholder_text(Some("Applications"));
     search_bar.set_has_frame(true);
-    let mut launcher = launcher_cell.borrow_mut();
+    let launcher = launcher_cell.borrow_mut();
     launcher.hide_search_results_container();
     search_bar.clone()
 }
@@ -121,8 +120,6 @@ fn volume_button(
     application_window: &gtk::ApplicationWindow,
     focus_on_panel_hide: &impl IsA<gtk::Widget>
 ) -> VolumeControl {
-    let mut launcher = launcher_cell.borrow_mut();
-
     let volume_button = VolumeControl::new(icon_theme, &application_window.clone(), focus_on_panel_hide);
 
     event_handler::attach_volume_handlers(launcher_cell.clone(), volume_button.clone(), application_window.clone());

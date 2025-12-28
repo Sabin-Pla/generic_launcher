@@ -25,7 +25,7 @@ thread_local! {
 
 unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<Launcher>>) {
     // this function is called whenever the application is 'activated' (reopened after being dismissed)
-    let mut launcher = launcher_cell.borrow_mut();
+    let launcher = launcher_cell.borrow();
 
     WINDOW.with(|application_window| {
         let mut application_window = (*application_window).borrow_mut();
@@ -46,8 +46,6 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
                 println!("Showing launcher");
                 application_window.set_visible(true);
 
-                let provider = gtk::CssProvider::new();
-                
                 // set monitor dimensions
                 let surface = application_window.surface().unwrap();
                 let display = gtk::prelude::WidgetExt::display(application_window);

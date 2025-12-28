@@ -61,18 +61,17 @@ pub fn attach_screenshot_handlers(
 }
 
 pub fn attach_volume_handlers(
-    launcher: Rc<RefCell<Launcher>>,
+    _launcher: Rc<RefCell<Launcher>>,
     volume_control_button: VolumeControl,
-    application_window: gtk::ApplicationWindow
+    _application_window: gtk::ApplicationWindow
 ) {
     let ecm = gtk::EventControllerMotion::builder()
         .propagation_phase(gtk::PropagationPhase::Capture)
         .build();
 
-    let launcher_cell_focus_notify = launcher;
     let volume_control_button_enter = volume_control_button.clone();
 
-    let volume_enter_handler = move |_: &gtk::EventControllerMotion, x: f64, y: f64| {
+    let volume_enter_handler = move |_: &gtk::EventControllerMotion, _: f64, _: f64| {
         let popover = volume_control_button_enter.get().popover.borrow();
         let popover = popover.as_ref().unwrap();
         popover.popup();
@@ -113,7 +112,7 @@ pub fn attach_window_key_handler(
                 }
             }
             _ => {
-                if let Some(character) = key.to_unicode() {
+                if let Some(_character) = key.to_unicode() {
                     launcher::focus_text_input(launcher_cell.clone());
                 }
             }
@@ -181,7 +180,8 @@ pub fn attach_search_bar_handlers(
         .propagation_phase(PropagationPhase::Capture)
         .build();
     let im_context = SearchEntryIMContext::new();
-    let im_simple = gtk::IMContextSimple::new();
+    
+    // let im_simple = gtk::IMContextSimple::new();
     // ec.set_im_context(Some(&im_context));
     im_context.set_use_preedit(true);
 
@@ -216,8 +216,6 @@ pub fn attach_search_bar_handlers(
 pub fn results_scroll_handler(launcher_cell: Rc<RefCell<Launcher>>, adjustment: &gtk::Adjustment) {
     match launcher_cell.try_borrow_mut() {
         Ok(mut launcher) => {
-            let selected_result_box = launcher.search_result_container.index(0);
-            let result_idx = selected_result_box.get_idx_in_search_result_vector();
             launcher.display_search_results(Some(adjustment.value().floor() as usize));
         },
         Err(..) => () // event already being handled
