@@ -1,6 +1,10 @@
 use gtk::prelude::{WidgetExt};
 use gtk::subclass::prelude::*;
 
+/*
+    Badge is used for dayboxes which have notes associated with them
+*/
+
 mod inner {
     use super::*;
 
@@ -33,6 +37,7 @@ impl Badge {
         obj.add_css_class("note-badge");
         obj.set_halign(gtk::Align::End);    
         obj.set_valign(gtk::Align::Start);
+        obj.set_visible(false);
         obj
     }
 }

@@ -1,6 +1,10 @@
 mod badge;
 mod day_box;
 mod day_marking;
+mod user_calendar_data;
+
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use gtk::prelude::{Cast, WidgetExt};
 use gtk::subclass::prelude::*;
@@ -11,15 +15,17 @@ use gtk4_layer_shell::LayerShell;
 
 use badge::Badge;
 use day_box::DayBox;
-use day_marking::{DayMarking, MarkingCycle, MarkingType};
+use day_marking::DayMarking;
+pub use day_marking::{MarkingType};
+use user_calendar_data::{UserCalendarData, NoteDate};
 
 mod inner {
     use super::*;
 
-    #[derive(Default)]
     pub struct Calendar {
         pub popover: gtk::Popover,
         pub grid: gtk::Grid,
+        pub user_calendar_data: Rc<RefCell<UserCalendarData>>
     }
 
     #[gtk::glib::object_subclass]
@@ -29,9 +35,11 @@ mod inner {
         type ParentType = gtk::Widget;
 
         fn new() -> Self {
-            let _user_calendar_data = get_user_calendar_data().expect("Error getting user calendar data");
+            let user_calendar_data = UserCalendarData::load();
             Self {
-                ..Default::default()
+                user_calendar_data: Rc::new(RefCell::new(user_calendar_data.into())),
+                grid: gtk::Grid::new(),
+                popover: gtk::Popover::new()
             }
         }
     }
@@ -54,6 +62,7 @@ glib::wrapper! {
 impl Calendar {
     pub fn new() -> Self {
         let obj = glib::Object::new::<Self>();
+        obj.add_css_class("calendar");
         let calendar = inner::Calendar::from_obj(&obj);
         calendar.popover.set_parent(&obj);
         let calendar_inner = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -137,8 +146,8 @@ impl Calendar {
     }
 
     pub fn initialize(&self,
-        application_window: &gtk::ApplicationWindow, 
-        focus_on_hide: &impl gdk::prelude::IsA<gtk::Widget>) {
+            application_window: &gtk::ApplicationWindow, 
+            focus_on_hide: &impl gdk::prelude::IsA<gtk::Widget>) {
 
         let calendar = &inner::Calendar::from_obj(self);
 
@@ -150,7 +159,7 @@ impl Calendar {
             while let Some(widget) = w {
                 if widget.has_css_class("calendar-daybox") {
                     let day_box = widget.downcast::<DayBox>().expect("non-daybox has css class calendar-daybox");
-                    day_box.toggle_marker();
+                    day_box.toggle_marking();
                     break;
                 } else if widget.has_css_class("calendar-inner") {
                     break;
@@ -182,6 +191,11 @@ impl Calendar {
         attach_weekday_boxes(&calendar.grid);
         create_day_boxes(&calendar.grid);
     }
+
+    pub fn user_calendar_data(&self) -> Rc<RefCell<UserCalendarData>> {
+        let calendar = &inner::Calendar::from_obj(self);
+        calendar.user_calendar_data.clone()
+    }
 }
 
 fn create_day_boxes(grid: &gtk::Grid) {
@@ -207,48 +221,5 @@ fn attach_weekday_boxes(grid: &gtk::Grid) {
         let label = gtk::Label::new(Some(weekday));
         label.add_css_class("weekday-label");
         grid.attach(&label, i as i32, 0, 1, 1);
-    }
-}
-
-
-fn get_user_calendar_data() -> Result<std::fs::File, Box<dyn std::error::Error>>  {
-    let is_writable = |path: &str| {
-        std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)
-    };
-
-    let calendar_data_file_path = match std::env::var_os("XDG_DATA_HOME") {
-        Some(data_dir) => {
-            let mut path = std::path::PathBuf::from(&data_dir.into_string().unwrap());
-            path.push("generic_launcher");
-            let _ = std::fs::create_dir_all(&path);
-            path.push("calendar_data.json");
-            path
-        },
-        None => {
-            let mut path = std::env::home_dir()
-                .expect("Could not get home directory fallback for unprovided XDG_DATA_HOME");
-            path.push(".local");
-            path.push("share");
-            path.push("generic_launcher");
-            std::fs::create_dir_all(&path)?;
-            path.push("calendar_data.json");
-            path
-        }
-    };
-
-    let path_str = calendar_data_file_path.to_str().unwrap();
-    if let Ok(mut calendar_data_file) = is_writable(path_str) {
-        let mut contents = vec!();
-        use std::io::Read;
-        calendar_data_file.read_to_end(&mut contents)?;
-
-        println!("Calendar data contents: {:?} {path_str}", contents);
-        Ok(calendar_data_file)
-    } else {
-        panic!("Could not write to fallback datapath $HOME/.local/share/generic_launcher")
     }
 }

@@ -1,18 +1,20 @@
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
 
-use gtk::prelude::BoxExt;
+use gtk::prelude::{Cast, BoxExt};
 
-use crate::gobject::calendar::{Badge, DayMarking, MarkingType, MarkingCycle};
+use crate::gobject::calendar::{Badge, Calendar, DayMarking, MarkingType, NoteDate, UserCalendarData};
 
 mod inner {
     use super::*;
 
     pub struct DayBox {
         pub label: gtk::Label,
-        pub marking: RefCell<(super::DayMarking, MarkingCycle)>
+        pub date: RefCell<(u32, u32, u32)>,
+        pub marking: RefCell<(super::DayMarking, MarkingType)>
     }
 
     #[gtk::glib::object_subclass]
@@ -22,11 +24,10 @@ mod inner {
         type ParentType = gtk::Widget;
 
         fn new() -> Self {
-            let mut marking_cycle = MarkingType::cycle();
-            marking_cycle.next();
             Self {
                 label: Default::default(),
-                marking: (super::DayMarking::new(), marking_cycle).into()
+                date: (0, 0, 0).into(),
+                marking: (super::DayMarking::new(),  MarkingType::None).into()
             }
         }
     }
@@ -65,18 +66,48 @@ impl DayBox {
     }
 
     pub fn set_date(&self, year_number: u32, month_number: u32, day_number: u32) {
-        
-        // don't forget to zero pad this shit
-        println!("{year_number}-{month_number}-{day_number}");
-
         let day_box = inner::DayBox::from_obj(&self);
+        day_box.date.replace((year_number, month_number, day_number));
         day_box.label.set_text(&day_number.to_string());
+        let user_calendar_data = self.get_calendar_data();
+        let mut user_calendar_data = user_calendar_data.borrow_mut();
+
+        let note_date = NoteDate::from(*day_box.date.borrow());
+        if let Some(note) = user_calendar_data.get_date_entry(note_date) {
+            Self::set_marking(day_box, &note.marking);
+        }
     }
 
-    pub fn toggle_marker(&self) {
+    fn get_calendar_data(&self) -> Rc<RefCell<UserCalendarData>> {
+        let mut w = self.parent();
+        while let Some(widget) = w {
+            if widget.has_css_class("calendar") {
+                let calendar = widget.downcast_ref::<Calendar>().expect("non-calendar has css class calendar");
+                return calendar.user_calendar_data()
+            }
+            w = widget.parent();
+        }
+        panic!("Could not find calendar containing daybox");
+    }
+
+    pub fn toggle_marking(&self) {
         let day_box = inner::DayBox::from_obj(&self);
         let mut marking = day_box.marking.borrow_mut();
-        marking.1.next().unwrap().set_css(&marking.0);
+        marking.1.next();
+        marking.1.set_css(&marking.0);
+        let note_date = NoteDate::from(*day_box.date.borrow());
+        let user_calendar_data = self.get_calendar_data();
+        let mut user_calendar_data = user_calendar_data.borrow_mut();
+        let note_data = user_calendar_data.get_or_insert_date_entry(note_date);
+        note_data.marking = marking.1;
+        user_calendar_data.write_contents();
+        
+    }
+
+    fn set_marking(day_box: &inner::DayBox, marking_type: &MarkingType) {
+        let mut marking = day_box.marking.borrow_mut();
+        marking.1 = *marking_type;
+        marking.1.set_css(&marking.0);
     }
 
 }

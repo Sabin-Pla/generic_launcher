@@ -35,27 +35,52 @@ impl DayMarking {
     }
 }
 
+ #[derive(Clone, Copy, Default)]
 pub enum MarkingType {
-    None,
+    #[default] None,
     One,
     Two,
 }
 
-pub type MarkingCycle = std::iter::Cycle<std::slice::Iter<'static, MarkingType>>;
+impl From<&str> for MarkingType {
+    fn from(string: &str) -> Self {
+        match string {
+            "One" => Self::One,
+            "Two" => Self::Two,
+            "None"|"" => Self::None,
+            _ => panic!("bad marking type string: {string}")
+        }
+    }
+}
+
+
+impl std::fmt::Display for MarkingType  {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        let s = match self {
+            Self::One => "One",
+            Self::Two => "Two",
+            Self::None => "None"
+        };
+        write!(f, "{}", s)
+    }
+}
 
 impl MarkingType {
-    pub fn cycle() -> MarkingCycle {
-        [Self::None, Self::One, Self::Two].iter().cycle()
+    pub fn set_css(&self, day_marking: &DayMarking) {
+        day_marking.remove_css_class("marking-color1");
+        day_marking.remove_css_class("marking-color2");
+        match self {
+            Self::None => (),
+            Self::One => day_marking.add_css_class("marking-color1"),
+            Self::Two => day_marking.add_css_class("marking-color2")
+        }
     }
 
-    pub fn set_css(&self, day_marking: &DayMarking) {
+    pub fn next(&mut self) {
         match self {
-            Self::None => day_marking.remove_css_class("marking-color2"),
-            Self::One => day_marking.add_css_class("marking-color1"),
-            Self::Two => {
-                day_marking.add_css_class("marking-color2"); 
-                day_marking.remove_css_class("marking-color1");
-            }
+            Self::None => *self = Self::One,
+            Self::One => *self = Self::Two,
+            Self::Two => *self = Self::None
         }
     }
 }
