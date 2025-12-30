@@ -10,7 +10,7 @@ use gtk::prelude::{Cast, WidgetExt};
 use gtk::subclass::prelude::*;
 
 use chrono::{Month, Datelike};
-use gtk::prelude::{BoxExt, GridExt, PopoverExt};
+use gtk::prelude::{BoxExt, GestureSingleExt, GridExt, PopoverExt, TextViewExt};
 use gtk4_layer_shell::LayerShell;
 
 use badge::Badge;
@@ -18,6 +18,7 @@ use day_box::DayBox;
 use day_marking::DayMarking;
 pub use day_marking::{MarkingType};
 use user_calendar_data::{UserCalendarData, NoteDate};
+use super::CenteredWidget;
 
 mod inner {
     use super::*;
@@ -25,6 +26,7 @@ mod inner {
     pub struct Calendar {
         pub popover: gtk::Popover,
         pub grid: gtk::Grid,
+        pub selected_day: RefCell<Option<(i32, i32)>>,
         pub user_calendar_data: Rc<RefCell<UserCalendarData>>
     }
 
@@ -39,6 +41,7 @@ mod inner {
             Self {
                 user_calendar_data: Rc::new(RefCell::new(user_calendar_data.into())),
                 grid: gtk::Grid::new(),
+                selected_day: None.into(),
                 popover: gtk::Popover::new()
             }
         }
@@ -65,10 +68,23 @@ impl Calendar {
         obj.add_css_class("calendar");
         let calendar = inner::Calendar::from_obj(&obj);
         calendar.popover.set_parent(&obj);
+        let calendar_outer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        calendar_outer.add_css_class("calendar-outer");
         let calendar_inner = gtk::Box::new(gtk::Orientation::Vertical, 0);
         calendar_inner.append(&calendar.grid);
         calendar_inner.add_css_class("calendar-inner");
-        calendar.popover.set_child(Some(&calendar_inner));
+        calendar_outer.append(&calendar_inner);
+
+
+        let notes_entry_scrolled = gtk::ScrolledWindow::new();
+        let notes_entry = gtk::TextView::new();
+        notes_entry_scrolled.set_child(Some(&notes_entry));
+        notes_entry.set_wrap_mode(gtk::WrapMode::Word);
+        notes_entry_scrolled.add_css_class("day-notes-window");
+        notes_entry.set_hexpand(true);
+        calendar_outer.append(&notes_entry_scrolled);
+        calendar.popover.set_has_arrow(true);
+        calendar.popover.set_child(Some(&calendar_outer));
         calendar.popover.set_position(gtk::PositionType::Top);
         obj
     }
@@ -129,6 +145,8 @@ impl Calendar {
             day_box.set_date(now.year() as u32, month.number_from_month(), i as u32);
             if i as u32 == current_day {
                 day_box.add_css_class("today");
+                day_box.add_css_class("selected-day");
+                calendar.selected_day.replace(Some((col, row)));
             }
         }
 
@@ -147,29 +165,79 @@ impl Calendar {
 
     pub fn initialize(&self,
             application_window: &gtk::ApplicationWindow, 
-            focus_on_hide: &impl gdk::prelude::IsA<gtk::Widget>) {
+            focus_on_hide: &impl gdk::prelude::IsA<gtk::Widget>,
+            icon_theme: &gtk::IconTheme) {
 
         let calendar = &inner::Calendar::from_obj(self);
 
         let obj = self.clone();
+        let obj_left_click = self.clone();
 
-        let popover_click = calendar.popover.clone();
-        let calendar_click_handler = move |_gc: &gtk::GestureClick, _: i32, x: f64, y: f64| {
-            let mut w = popover_click.pick(x, y, gtk::PickFlags::DEFAULT);
+        let popover_left_click = calendar.popover.clone();
+        let popover_right_click = calendar.popover.clone();
+
+        let get_clicked_day_box = |popover: &gtk::Popover, x: f64, y: f64| -> Option<DayBox> {
+            let mut w = popover.pick(x, y, gtk::PickFlags::DEFAULT);
             while let Some(widget) = w {
                 if widget.has_css_class("calendar-daybox") {
                     let day_box = widget.downcast::<DayBox>().expect("non-daybox has css class calendar-daybox");
-                    day_box.toggle_marking();
-                    break;
-                } else if widget.has_css_class("calendar-inner") {
-                    break;
+                    return Some(day_box);
+                } else if widget.has_css_class("calendar") {
+                    return None;
                 }
                 w = widget.parent();
             }
+            unreachable!("calendar popup does not have calendar css class");
         };
-        let gesture_click = gtk::GestureClick::new();
-        gesture_click.connect_pressed(calendar_click_handler);
-        calendar.popover.add_controller(gesture_click);
+
+        let outer_box = popover_left_click.child().expect("calendar popover cotnains no box");
+                assert!(outer_box.has_css_class("calendar-outer"));
+        let text_view = outer_box.last_child().expect("outer_box has no children")
+            .first_child()
+            .expect("outerbox child (ScrolledWindow) has no child")
+            .downcast::<gtk::TextView>()
+            .expect("calendar-outer last child child is not text_view");
+
+        apply_note_icon(icon_theme, &text_view);
+
+        let calendar_left_click_handler = move |_gc: &gtk::GestureClick, _: i32, x: f64, y: f64| {
+
+            if let Some(day_box) = get_clicked_day_box(&popover_left_click, x, y) {
+                let calendar = inner::Calendar::from_obj(&obj_left_click);
+                let (col, row, _, _) = calendar.grid.query_child(&day_box);
+                println!("selected day_box: {:?}", (col, row));
+                if let Some(last) = calendar.selected_day.replace(Some((col, row))) {
+                    let last_selected_day = calendar.grid
+                        .child_at(last.0, last.1).expect(
+                            &format!("last calendar daybox invalid (col, row) {:?}", last));
+                    day_box.add_css_class("selected-day");
+                    last_selected_day.remove_css_class("selected-day");
+                    if last == (col, row) {
+                        calendar.selected_day.replace(None);
+                        text_view.set_visible(false);
+                    } else {
+                        text_view.set_visible(true);
+                    }
+                    return
+                }
+                day_box.add_css_class("selected-day");
+                text_view.set_visible(true);
+            }
+        };
+        let gesture_left_click = gtk::GestureClick::new();
+        gesture_left_click.set_button(1);
+        gesture_left_click.connect_pressed(calendar_left_click_handler);
+        calendar.popover.add_controller(gesture_left_click);
+
+        let calendar_right_click_handler = move |_gc: &gtk::GestureClick, _: i32, x: f64, y: f64| {
+            if let Some(day_box) = get_clicked_day_box(&popover_right_click, x, y) {
+                day_box.toggle_marking();
+            }
+        };
+        let gesture_right_click = gtk::GestureClick::new();
+        gesture_right_click.set_button(3);
+        gesture_right_click.connect_pressed(calendar_right_click_handler);
+        calendar.popover.add_controller(gesture_right_click);
 
         let application_window_connect_show = application_window.clone();
         calendar.popover.connect_show(move |_: &gtk::Popover| {
@@ -222,4 +290,28 @@ fn attach_weekday_boxes(grid: &gtk::Grid) {
         label.add_css_class("weekday-label");
         grid.attach(&label, i as i32, 0, 1, 1);
     }
+}
+
+fn apply_note_icon(icon_theme: &gtk::IconTheme, text_view: &gtk::TextView) {
+    let note_taking_icon = icon_theme.lookup_icon(
+        "note-taking-symbolic",
+        &[],
+        32,
+        1,
+        gtk::TextDirection::None,
+        gtk::IconLookupFlags::PRELOAD,
+    );
+    let note_taking_icon = gtk::Image::from_paintable(Some(&note_taking_icon));
+    note_taking_icon.set_icon_size(gtk::IconSize::Large);
+    let overlay_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    overlay_box.append(&note_taking_icon);
+    overlay_box.add_css_class("note-taking-icon-overlay");
+    let icon_label = gtk::Label::builder()
+        .label("Type to enter selected day's notes")
+        .wrap(true)
+        .wrap_mode(gtk::pango::WrapMode::Word)
+        .build();
+    overlay_box.append(&icon_label);
+    let note_taking_icon = CenteredWidget::new(&overlay_box);
+    text_view.add_overlay(&note_taking_icon, 0, 0);
 }

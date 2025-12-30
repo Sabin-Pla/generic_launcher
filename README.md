@@ -51,5 +51,4 @@ The default CSS used in the screenshot uses the default system theme, in this ca
 Thank you to the gnome project http://www.gnome.org for icons (Adwaita)
 These are packaged to avoid dependencies.
 
-
-
+Note taking icon from: https://www.svgrepo.com/svg/509175/note

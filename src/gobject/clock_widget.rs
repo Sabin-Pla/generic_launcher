@@ -179,14 +179,15 @@ impl ClockWidget {
     pub fn new(
             monitor_cell: Rc<RefCell<Option<(i32, i32)>>>, 
             application_window: &gtk::ApplicationWindow,
-            focus_on_panel_hide: &impl IsA<gtk::Widget>
+            focus_on_panel_hide: &impl IsA<gtk::Widget>,
+            icon_theme: &gtk::IconTheme
         ) -> Self {
         let obj = Object::new::<Self>();
         
         let clock_widget = inner::ClockWidget::from_obj(&obj);
         let clock_label = &clock_widget.label;
         let calendar = &clock_widget.calendar;
-        calendar.initialize(application_window, focus_on_panel_hide);
+        calendar.initialize(application_window, focus_on_panel_hide, icon_theme);
 
         let mut layout_manager = obj
             .layout_manager()

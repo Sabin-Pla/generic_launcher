@@ -41,7 +41,7 @@ fn topbar(
         .build();
 
     let monitor_cell = launcher.borrow().current_monitor.clone();
-    topbar.set_center_widget(Some(&ClockWidget::new(monitor_cell, application_window, focus_on_panel_hide)));
+    topbar.set_center_widget(Some(&ClockWidget::new(monitor_cell, application_window, focus_on_panel_hide, &icon_theme)));
     let right = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     right.add_css_class("right-box");
 
