@@ -174,7 +174,7 @@ impl Calendar {
             .downcast::<gtk::TextView>()
             .expect("calendar-outer last child child is not TextView");
 
-        apply_note_icon(calendar, icon_theme, &note_text_view);
+        apply_note_icon(self, icon_theme, &note_text_view);
         let gesture_left_click = gtk::GestureClick::new();
         gesture_left_click.set_button(1);
         gesture_left_click.connect_pressed(
@@ -396,7 +396,8 @@ fn attach_weekday_boxes(grid: &gtk::Grid) {
     }
 }
 
-fn apply_note_icon(calendar: &inner::Calendar, icon_theme: &gtk::IconTheme, note_text_view: &gtk::TextView) {
+fn apply_note_icon(calendar_obj: &Calendar, icon_theme: &gtk::IconTheme, note_text_view: &gtk::TextView) {
+    let calendar = calendar_obj.get_inner();
     let note_taking_icon = icon_theme.lookup_icon(
         "note-taking-symbolic",
         &[],
@@ -418,18 +419,23 @@ fn apply_note_icon(calendar: &inner::Calendar, icon_theme: &gtk::IconTheme, note
     let note_taking_icon = CenteredWidget::new(&*overlay_box);
     note_text_view.add_overlay(&note_taking_icon, 0, 0);
     note_text_view.set_cursor_visible(false);
-    attach_note_text_view_key_handler(&note_text_view, &overlay_box)
+    attach_note_text_view_key_handler(&note_text_view, &overlay_box, &calendar_obj)
 }
 
-fn attach_note_text_view_key_handler(note_entry_text_view: &gtk::TextView, overlay_box: &gtk::Box) {
+fn attach_note_text_view_key_handler(note_entry_text_view: &gtk::TextView, overlay_box: &gtk::Box, calendar: &Calendar) {
     let overlay_box = overlay_box.clone();
     let note_entry_text_view = note_entry_text_view.clone();
+    let calendar = calendar.clone();
     note_entry_text_view.buffer().connect_notify_local(Some("text"), move |buffer, _| {
+        let selected_day = get_selected_day(calendar.get_inner())
+            .expect("note_entry_text_view is open but could not find selected day");
         if buffer.text(&buffer.start_iter(), &buffer.end_iter(), false).is_empty() {
             overlay_box.set_visible(true); 
+            selected_day.set_badge_visible(false);
             note_entry_text_view.set_cursor_visible(false);
         } else {
             overlay_box.set_visible(false); 
+            selected_day.set_badge_visible(true);
             note_entry_text_view.set_cursor_visible(true);
         }
     });

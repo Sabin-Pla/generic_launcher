@@ -14,7 +14,8 @@ mod inner {
     pub struct DayBox {
         pub label: gtk::Label,
         pub date: RefCell<NoteDate>,
-        pub marking: RefCell<(super::DayMarking, MarkingType)>
+        pub marking: RefCell<(super::DayMarking, MarkingType)>,
+        pub badge: Badge
     }
 
     #[gtk::glib::object_subclass]
@@ -27,7 +28,8 @@ mod inner {
             Self {
                 label: Default::default(),
                 date: NoteDate::from((0, 0, 0)).into(),
-                marking: (super::DayMarking::new(),  MarkingType::None).into()
+                marking: (super::DayMarking::new(),  MarkingType::None).into(),
+                badge: Badge::new()
             }
         }
     }
@@ -50,6 +52,7 @@ glib::wrapper! {
 impl DayBox {
     pub fn new() -> Self {
         let obj =  glib::Object::new::<Self>();
+        let day_box = inner::DayBox::from_obj(&obj);
         obj.add_css_class("calendar-daybox");
         let daybox_inner = gtk::Box::new(gtk::Orientation::Vertical, 0);
         daybox_inner.add_css_class("daybox-inner");
@@ -57,8 +60,7 @@ impl DayBox {
         daybox_inner.append(&day_box.label);
 
         let overlay = gtk::Overlay::new();
-        let badge = Badge::new();
-        overlay.add_overlay(&badge);
+        overlay.add_overlay(&day_box.badge);
         overlay.set_parent(&obj);
         daybox_inner.append(&day_box.marking.borrow().0);
         daybox_inner.set_parent(&obj);
@@ -73,8 +75,11 @@ impl DayBox {
         let mut user_calendar_data = user_calendar_data.borrow_mut();
 
         let note_date = NoteDate::from(*day_box.date.borrow());
-        if let Some(note) = user_calendar_data.get_date_entry(note_date) {
-            Self::set_marking(day_box, &note.marking);
+        if let Some(note_data) = user_calendar_data.get_date_entry(note_date) {
+            Self::set_marking(day_box, &note_data.marking);
+            if !note_data.note.is_empty() {
+                day_box.badge.set_visible(true);
+            }
         }
     }
 
@@ -112,5 +117,9 @@ impl DayBox {
 
     pub fn get_inner(&self) -> &inner::DayBox {
         inner::DayBox::from_obj(&self)
+    }
+
+    pub fn set_badge_visible(&self, state: bool) {
+        self.get_inner().badge.set_visible(state)
     }
 }
