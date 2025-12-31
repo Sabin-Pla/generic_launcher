@@ -287,18 +287,16 @@ fn set_overlay_box_message(overlay_box: &gtk::Box, note_entry_text_view: &gtk::T
 }
 
 fn before_yesterday_12_am(date: NoteDate) -> bool {
-    let now = chrono::Local::now();
-    let yesterday_12_am = now
-        .with_time(chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap())
-        .unwrap()
-        .with_day(now.day() - 1)
-        .unwrap();
-    let given_date = yesterday_12_am
-        .with_year(date.year as i32).unwrap()
-        .with_month(date.month).unwrap()
-        .with_day(date.day).unwrap();
-    println!("{:?} | {:?} | ", &yesterday_12_am, &given_date);
-    yesterday_12_am > given_date
+    let today = chrono::Local::now().date_naive();
+    let yesterday = today.pred(); // calendar-correct
+
+    let given_date = chrono::NaiveDate::from_ymd_opt(
+        date.year as i32,
+        date.month,
+        date.day,
+    ).unwrap();
+
+    given_date < yesterday
 }
 
 fn left_click_handler(
