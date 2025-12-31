@@ -1,4 +1,4 @@
-#[derive(Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct NoteDate {
 	year: u32,
 	month: u32,

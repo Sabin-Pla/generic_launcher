@@ -13,7 +13,7 @@ mod inner {
 
     pub struct DayBox {
         pub label: gtk::Label,
-        pub date: RefCell<(u32, u32, u32)>,
+        pub date: RefCell<NoteDate>,
         pub marking: RefCell<(super::DayMarking, MarkingType)>
     }
 
@@ -26,7 +26,7 @@ mod inner {
         fn new() -> Self {
             Self {
                 label: Default::default(),
-                date: (0, 0, 0).into(),
+                date: NoteDate::from((0, 0, 0)).into(),
                 marking: (super::DayMarking::new(),  MarkingType::None).into()
             }
         }
@@ -67,7 +67,7 @@ impl DayBox {
 
     pub fn set_date(&self, year_number: u32, month_number: u32, day_number: u32) {
         let day_box = inner::DayBox::from_obj(&self);
-        day_box.date.replace((year_number, month_number, day_number));
+        day_box.date.replace((year_number, month_number, day_number).into());
         day_box.label.set_text(&day_number.to_string());
         let user_calendar_data = self.get_calendar_data();
         let mut user_calendar_data = user_calendar_data.borrow_mut();
@@ -110,4 +110,7 @@ impl DayBox {
         marking.1.set_css(&marking.0);
     }
 
+    pub fn get_inner(&self) -> &inner::DayBox {
+        inner::DayBox::from_obj(&self)
+    }
 }

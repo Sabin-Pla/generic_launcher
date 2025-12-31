@@ -50,15 +50,17 @@ mod inner {
             orientation: gtk::Orientation,
             for_size: i32,
         ) -> (i32, i32, i32, i32) {
-            let parent_allocation = widget.parent().unwrap().allocation();
+            let parent = widget.parent().unwrap();
+            let parent_allocation = parent.compute_bounds(&parent.parent().unwrap());
             println!("widget parent allocation (measure) {:?} {for_size}", &parent_allocation);
             self.bin.measure(widget, orientation, for_size)
         }
 
-        fn allocate(&self, widget: &gtk::Widget, width: i32, height: i32, baseline: i32) {
-            let parent_allocation = widget.parent().unwrap().allocation();
-            let width = parent_allocation.width();
-            let height = parent_allocation.height();
+        fn allocate(&self, widget: &gtk::Widget, _width: i32, _height: i32, baseline: i32) {
+            let parent = widget.parent().unwrap();
+            let parent_allocation = parent.compute_bounds(&parent.parent().unwrap()).unwrap();
+            let width = parent_allocation.width() as i32;
+            let height = parent_allocation.height() as i32;
             self.bin.allocate(widget, width, height, baseline);
         }
     }

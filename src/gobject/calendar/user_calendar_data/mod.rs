@@ -29,6 +29,21 @@ impl UserCalendarData {
         self.notes.entry(note_date).or_insert(NoteData::default())
     }
 
+    pub fn get_date_notes(&self, note_date: NoteDate) -> Option<&str> {
+        match self.notes.get(&note_date) {
+            Some(note_date) => Some(note_date.note.as_str()),
+            None => None
+        }
+    }
+
+    pub fn resync_note_changes(&mut self, note_date: NoteDate, note: String) {
+        let entry =  self.get_or_insert_date_entry(note_date);
+        if entry.note != note.as_str() {
+            entry.note = note
+        }
+        self.write_contents()
+    }
+
     pub fn write_contents(&self) {
         let toml = toml::Table::from_iter(
             self.notes.iter().map(|(note_date, note_data)| {
@@ -36,7 +51,7 @@ impl UserCalendarData {
                 table.insert("marking".to_string(), toml::Value::String(note_data.marking.to_string()));
                 table.insert("note".to_string(), toml::Value::String(note_data.note.clone()));
                 (note_date.to_string(), toml::Value::Table(table))
-            }));
+        }));
         use std::io::Write;
         let file_path = self.calendar_data_file.0.clone();
         std::thread::spawn(move || {
@@ -45,7 +60,7 @@ impl UserCalendarData {
                 .expect("could not create temp file for writing calendar user data");
             tmp_file.write_all(toml.to_string().as_bytes())
                 .expect("could not write to calendar user data temp file");
-            // tmp_file.sync_all()?; // flush to disk
+            tmp_file.sync_all().expect("failed to flush temp calendar user data swap file to disk");
             std::fs::rename(tmp_path, file_path)
                 .expect("failed to overwrite calendar user data file"); 
         });
