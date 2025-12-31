@@ -1,8 +1,8 @@
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct NoteDate {
-	year: u32,
-	month: u32,
-	day: u32
+	pub year: u32,
+	pub month: u32,
+	pub day: u32
 }
 
 impl From<(u32, u32, u32)> for NoteDate {

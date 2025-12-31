@@ -20,6 +20,9 @@ pub use day_marking::{MarkingType};
 use user_calendar_data::{UserCalendarData, NoteDate};
 use super::CenteredWidget;
 
+const NOTE_OVERLAY_EDITABLE:    &str = "Type to enter selected day's notes";
+const NOTE_OVERLAY_NONEDITABLE: &str = "No note was entered for selected day";
+
 mod inner {
     use super::*;
 
@@ -248,7 +251,12 @@ fn display_day_notes(calendar: &inner::Calendar, selected_day: &DayBox, note_ent
     let user_calendar_data = calendar.user_calendar_data.borrow_mut();
     let selected_day = selected_day.get_inner();
     let overlay_box = calendar.note_overlay_box.borrow();
-    if let Some(date_note) = user_calendar_data.get_date_notes(*selected_day.date.borrow()) {
+    let date = *selected_day.date.borrow();
+    match before_yesterday_12_am(date) {
+        true => set_overlay_box_message(&overlay_box, note_entry_text_view, false),
+        false => set_overlay_box_message(&overlay_box, note_entry_text_view, true)
+    }
+    if let Some(date_note) = user_calendar_data.get_date_notes(date) {
         note_entry_text_view.buffer().set_text(&date_note);
         if date_note.trim().is_empty() {
             overlay_box.set_visible(true);
@@ -259,6 +267,38 @@ fn display_day_notes(calendar: &inner::Calendar, selected_day: &DayBox, note_ent
         note_entry_text_view.buffer().set_text("");
         overlay_box.set_visible(true);
     }
+}
+
+fn set_overlay_box_message(overlay_box: &gtk::Box, note_entry_text_view: &gtk::TextView, editable: bool) {
+    let note_icon = overlay_box.first_child().expect("overlay box has no child");
+    let label = note_icon.next_sibling()
+        .expect("note icon has no label sibling")
+        .downcast::<gtk::Label>()
+        .expect("note icon sibling is not label");
+    if editable {
+        note_icon.set_visible(true);
+        note_entry_text_view.set_editable(true);
+        label.set_text(NOTE_OVERLAY_EDITABLE);
+    } else {
+        note_icon.set_visible(false);
+        note_entry_text_view.set_editable(false);
+        label.set_text(NOTE_OVERLAY_NONEDITABLE);
+    }
+}
+
+fn before_yesterday_12_am(date: NoteDate) -> bool {
+    let now = chrono::Local::now();
+    let yesterday_12_am = now
+        .with_time(chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap())
+        .unwrap()
+        .with_day(now.day() - 1)
+        .unwrap();
+    let given_date = yesterday_12_am
+        .with_year(date.year as i32).unwrap()
+        .with_month(date.month).unwrap()
+        .with_day(date.day).unwrap();
+    println!("{:?} | {:?} | ", &yesterday_12_am, &given_date);
+    yesterday_12_am > given_date
 }
 
 fn left_click_handler(
@@ -371,7 +411,6 @@ fn apply_note_icon(calendar: &inner::Calendar, icon_theme: &gtk::IconTheme, note
     overlay_box.append(&note_taking_icon);
     overlay_box.add_css_class("note-taking-icon-overlay");
     let icon_label = gtk::Label::builder()
-        .label("Type to enter selected day's notes")
         .wrap(true)
         .wrap_mode(gtk::pango::WrapMode::Word)
         .build();
