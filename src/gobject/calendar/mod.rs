@@ -10,7 +10,7 @@ use gtk::prelude::{Cast, WidgetExt};
 use gtk::subclass::prelude::*;
 
 use chrono::{Month, Datelike};
-use gtk::prelude::{BoxExt, TextBufferExt, GestureSingleExt, GridExt, PopoverExt, TextViewExt};
+use gtk::prelude::{BoxExt, ObjectExt, TextBufferExt, GestureSingleExt, GridExt, PopoverExt, TextViewExt};
 use gtk4_layer_shell::LayerShell;
 
 use badge::Badge;
@@ -165,17 +165,17 @@ impl Calendar {
 
         let outer_box = calendar.popover.child().expect("calendar popover cotnains no box");
                 assert!(outer_box.has_css_class("calendar-outer"));
-        let notes_text_view = outer_box.last_child().expect("outer_box has no children")
+        let note_text_view = outer_box.last_child().expect("outer_box has no children")
             .first_child()
             .expect("outerbox child (ScrolledWindow) has no child")
             .downcast::<gtk::TextView>()
             .expect("calendar-outer last child child is not TextView");
 
-        apply_note_icon(calendar, icon_theme, &notes_text_view);
+        apply_note_icon(calendar, icon_theme, &note_text_view);
         let gesture_left_click = gtk::GestureClick::new();
         gesture_left_click.set_button(1);
         gesture_left_click.connect_pressed(
-            left_click_handler(calendar.popover.clone(), self.clone(), notes_text_view.clone()));
+            left_click_handler(calendar.popover.clone(), self.clone(), note_text_view.clone()));
         calendar.popover.add_controller(gesture_left_click);
 
         let popover_right_click = calendar.popover.clone();
@@ -190,14 +190,14 @@ impl Calendar {
         gesture_right_click.connect_pressed(calendar_right_click_handler);
         calendar.popover.add_controller(gesture_right_click);
 
-        let notes_text_view_connect_show = notes_text_view.clone();
+        let note_text_view_connect_show = note_text_view.clone();
         let application_window_connect_show = application_window.clone();
         let obj_connect_show = self.clone();
 
         calendar.popover.connect_show(move |_: &gtk::Popover| {
             // must set this to have pointer events fire
             let calendar = obj_connect_show.get_inner();
-            display_selected_day_notes(calendar, &notes_text_view_connect_show);
+            display_selected_day_notes(calendar, &note_text_view_connect_show);
             let bounds = obj_connect_show
                 .compute_bounds(&application_window_connect_show)
                 .expect("could not compute bounds of volume popover");
@@ -212,7 +212,7 @@ impl Calendar {
         calendar.popover.connect_hide(move |_: &gtk::Popover| {
             let calendar = obj_connect_hide.get_inner();
             application_window_connect_hide.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
-            resync_selected_note_changes(calendar, &notes_text_view);
+            resync_selected_note_changes(calendar, &note_text_view);
             if let Some(selected_day) = get_selected_day(&calendar) {
                 selected_day.remove_css_class("selected-day");
             }
@@ -315,9 +315,9 @@ fn resync_selected_note_changes(calendar: &inner::Calendar, text_view: &gtk::Tex
     }
 }
 
-fn resync_note_changes(calendar: &inner::Calendar, text_view: &gtk::TextView, day_box: &DayBox) {
+fn resync_note_changes(calendar: &inner::Calendar, note_entry_text_view: &gtk::TextView, day_box: &DayBox) {
     let mut user_calendar_data = calendar.user_calendar_data.borrow_mut();
-    let buffer = text_view.buffer();
+    let buffer = note_entry_text_view.buffer();
     let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
     user_calendar_data.resync_note_changes(
         *day_box.get_inner().date.borrow(), text.to_string());
@@ -356,7 +356,7 @@ fn attach_weekday_boxes(grid: &gtk::Grid) {
     }
 }
 
-fn apply_note_icon(calendar: &inner::Calendar, icon_theme: &gtk::IconTheme, text_view: &gtk::TextView) {
+fn apply_note_icon(calendar: &inner::Calendar, icon_theme: &gtk::IconTheme, note_text_view: &gtk::TextView) {
     let note_taking_icon = icon_theme.lookup_icon(
         "note-taking-symbolic",
         &[],
@@ -377,5 +377,21 @@ fn apply_note_icon(calendar: &inner::Calendar, icon_theme: &gtk::IconTheme, text
         .build();
     overlay_box.append(&icon_label);
     let note_taking_icon = CenteredWidget::new(&*overlay_box);
-    text_view.add_overlay(&note_taking_icon, 0, 0);
+    note_text_view.add_overlay(&note_taking_icon, 0, 0);
+    note_text_view.set_cursor_visible(false);
+    attach_note_text_view_key_handler(&note_text_view, &overlay_box)
+}
+
+fn attach_note_text_view_key_handler(note_entry_text_view: &gtk::TextView, overlay_box: &gtk::Box) {
+    let overlay_box = overlay_box.clone();
+    let note_entry_text_view = note_entry_text_view.clone();
+    note_entry_text_view.buffer().connect_notify_local(Some("text"), move |buffer, _| {
+        if buffer.text(&buffer.start_iter(), &buffer.end_iter(), false).is_empty() {
+            overlay_box.set_visible(true); 
+            note_entry_text_view.set_cursor_visible(false);
+        } else {
+            overlay_box.set_visible(false); 
+            note_entry_text_view.set_cursor_visible(true);
+        }
+    });
 }

@@ -52,7 +52,6 @@ mod inner {
         ) -> (i32, i32, i32, i32) {
             let parent = widget.parent().unwrap();
             let parent_allocation = parent.compute_bounds(&parent.parent().unwrap());
-            println!("widget parent allocation (measure) {:?} {for_size}", &parent_allocation);
             self.bin.measure(widget, orientation, for_size)
         }
 
