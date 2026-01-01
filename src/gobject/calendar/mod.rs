@@ -286,15 +286,14 @@ fn display_day_notes(calendar: &inner::Calendar, selected_day: &DayBox, note_ent
         note_entry_text_view.buffer().set_text(&date_note);
         if date_note.trim().is_empty() {
             overlay_box.set_visible(true);
-            note_entry_text_view.grab_focus();
         } else {
             overlay_box.set_visible(false);
         }
     } else {
         note_entry_text_view.buffer().set_text("");
         overlay_box.set_visible(true);
-        note_entry_text_view.grab_focus();
     }
+    note_entry_text_view.grab_focus();
 }
 
 fn set_overlay_box_message(overlay_box: &gtk::Box, note_entry_text_view: &gtk::TextView, editable: bool) {

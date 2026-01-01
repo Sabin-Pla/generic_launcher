@@ -37,13 +37,11 @@ impl UserCalendarData {
     }
 
     pub fn resync_note_changes(&mut self, note_date: NoteDate, note: String) {
-        println!("resync_note_changes {note_date}");
         let entry =  self.get_or_insert_date_entry(note_date);
         if entry.note != note.as_str() {
             entry.note = note;
+            println!("resync_note_changes {note_date}");
             self.write_contents();
-        } else {
-            println!("no changes");
         }
     }
 
