@@ -121,23 +121,21 @@ impl Calendar {
         // the number of days the first day of the month is from the first sunday
         let first_days_from_sunday = first_weekday.num_days_from_sunday();
 
+        println!("last month days {last_month_days} first_days_from_sunday {first_days_from_sunday}");
         let mut row = 1;
         let mut col = 0;
         for i in 0..first_days_from_sunday {
             // add last month's days to calendar
-            let day_number = last_month_days as u32 - i;
-            col = (first_days_from_sunday - (i+1)) as i32;
+            let day_number = last_month_days as u32 - (first_days_from_sunday - i - 1);
             let day_box = get_day_from_calendar_grid(&calendar.grid, (col, row));
             day_box.set_date(last_month_year as u32, prev_month.number_from_month(), day_number);
             day_box.add_css_class("other-month-daybox");
+            col += 1;
         }
 
+        println!("-- {row} {col}");
         for i in 1..last_day_of_month+1 {
-            col += 1;
-            if col == 7 {
-                col = 0;
-                row += 1;
-            }
+            println!("-- {row} {col} | {i}");
             let day_box =  get_day_from_calendar_grid(&calendar.grid, (col, row));
             day_box.set_date(now.year() as u32, month.number_from_month(), i as u32);
             if i as u32 == current_day {
@@ -145,9 +143,18 @@ impl Calendar {
                 day_box.add_css_class("selected-day");
                 calendar.selected_day.replace(Some((col, row)));
             }
+            col += 1;
+            if col == 7 {
+                col = 0;
+                row += 1;
+            }
         }
 
+        if row == 6 {
+            return;
+        }
         for (next_month_day, i) in (col..7).enumerate() {
+            println!("next_month_day {next_month_day}");
             let day_box = get_day_from_calendar_grid(&calendar.grid, (i, row));
             day_box.add_css_class("other-month-daybox");
             day_box.set_date(next_month_year as u32, next_month.number_from_month(), next_month_day as u32 + 1);
