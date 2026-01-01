@@ -71,7 +71,7 @@ impl DayBox {
         self.remove_css_class("today");
         self.remove_css_class("selected-day");
         self.remove_css_class("other-month-daybox");
-        let day_box = inner::DayBox::from_obj(&self);
+        let day_box = inner::DayBox::from_obj(&self); 
         day_box.date.replace((year_number, month_number, day_number).into());
         day_box.label.set_text(&day_number.to_string());
         let user_calendar_data = self.get_calendar_data();

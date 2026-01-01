@@ -125,6 +125,8 @@ impl Calendar {
                 .expect("failure computing number of days in previous month"),
         };
 
+        calendar.selected_day.replace(None);
+
         // the number of days the first day of the month is from the first sunday
         let first_days_from_sunday = first_weekday.num_days_from_sunday();
 
@@ -140,8 +142,10 @@ impl Calendar {
         }
 
         let note_overlay_box = calendar.note_overlay_box.borrow();
-        note_overlay_box.set_visible(false);
         let now = chrono::Local::now().date_naive();
+        let note_entry_text_view = get_overlay_box_textview(&note_overlay_box);
+        note_overlay_box.set_visible(false);
+        note_entry_text_view.set_visible(false);
         for i in 1..last_day_of_month+1 {
             let day_box =  get_day_from_calendar_grid(&calendar.grid, (col, row));
             day_box.set_date(selected_date.year() as u32, month.number_from_month(), i as u32);
@@ -150,7 +154,8 @@ impl Calendar {
                 day_box.add_css_class("selected-day");
                 calendar.selected_day.replace(Some((col, row)));
                 note_overlay_box.set_visible(true);
-                set_overlay_box_message(&note_overlay_box, &get_overlay_box_textview(&note_overlay_box), true);
+                note_entry_text_view.set_visible(true);
+                display_day_notes(&calendar, &day_box, &note_entry_text_view);
             }
             col += 1;
             if col == 7 {
@@ -281,12 +286,14 @@ fn display_day_notes(calendar: &inner::Calendar, selected_day: &DayBox, note_ent
         note_entry_text_view.buffer().set_text(&date_note);
         if date_note.trim().is_empty() {
             overlay_box.set_visible(true);
+            note_entry_text_view.grab_focus();
         } else {
             overlay_box.set_visible(false);
         }
     } else {
         note_entry_text_view.buffer().set_text("");
         overlay_box.set_visible(true);
+        note_entry_text_view.grab_focus();
     }
 }
 
@@ -349,7 +356,6 @@ fn left_click_handler(
                 day_box.add_css_class("selected-day");
                 note_entry_text_view.set_visible(true);
             }
-            note_entry_text_view.grab_focus();
         } else if let Some(is_next) = get_clicked_month_selector(&popover, x, y) {
             resync_selected_note_changes(calendar, &note_entry_text_view);
             let mut selected_date = calendar.selected_date.borrow_mut();

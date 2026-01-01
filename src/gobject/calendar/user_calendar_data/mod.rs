@@ -37,11 +37,14 @@ impl UserCalendarData {
     }
 
     pub fn resync_note_changes(&mut self, note_date: NoteDate, note: String) {
+        println!("resync_note_changes {note_date}");
         let entry =  self.get_or_insert_date_entry(note_date);
         if entry.note != note.as_str() {
-            entry.note = note
+            entry.note = note;
+            self.write_contents();
+        } else {
+            println!("no changes");
         }
-        self.write_contents()
     }
 
     pub fn write_contents(&self) {
@@ -81,7 +84,7 @@ fn get_user_calendar_data_file() -> Result<(std::path::PathBuf, std::fs::File), 
             let mut path = std::path::PathBuf::from(&data_dir.into_string().unwrap());
             path.push("generic_launcher");
             let _ = std::fs::create_dir_all(&path);
-            path.push("calendar_data.json");
+            path.push("calendar_data.toml");
             path
         },
         None => {
@@ -91,7 +94,7 @@ fn get_user_calendar_data_file() -> Result<(std::path::PathBuf, std::fs::File), 
             path.push("share");
             path.push("generic_launcher");
             std::fs::create_dir_all(&path)?;
-            path.push("calendar_data.json");
+            path.push("calendar_data.toml");
             path
         }
     };
