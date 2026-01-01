@@ -68,6 +68,9 @@ impl DayBox {
     }
 
     pub fn set_date(&self, year_number: u32, month_number: u32, day_number: u32) {
+        self.remove_css_class("today");
+        self.remove_css_class("selected-day");
+        self.remove_css_class("other-month-daybox");
         let day_box = inner::DayBox::from_obj(&self);
         day_box.date.replace((year_number, month_number, day_number).into());
         day_box.label.set_text(&day_number.to_string());
@@ -79,7 +82,12 @@ impl DayBox {
             Self::set_marking(day_box, &note_data.marking);
             if !note_data.note.is_empty() {
                 day_box.badge.set_visible(true);
+            } else {
+                day_box.badge.set_visible(false);
             }
+        } else {
+            Self::set_marking(day_box, &MarkingType::default());
+            day_box.badge.set_visible(false);
         }
     }
 

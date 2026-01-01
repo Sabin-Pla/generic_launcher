@@ -29,6 +29,7 @@ mod inner {
     pub struct Calendar {
         pub popover: gtk::Popover,
         pub grid: gtk::Grid,
+        pub selected_date: RefCell<(chrono::NaiveDate, gtk::Label)>,
         pub selected_day: RefCell<Option<(i32, i32)>>,
         pub note_overlay_box: RefCell<gtk::Box>,
         pub user_calendar_data: Rc<RefCell<UserCalendarData>>
@@ -45,6 +46,7 @@ mod inner {
             Self {
                 user_calendar_data: Rc::new(RefCell::new(user_calendar_data.into())),
                 grid: gtk::Grid::new(),
+                selected_date: (chrono::Local::now().date_naive(), gtk::Label::new(None)).into(),
                 note_overlay_box: gtk::Box::new(gtk::Orientation::Horizontal, 0).into(),
                 selected_day: None.into(),
                 popover: gtk::Popover::new()
@@ -73,9 +75,11 @@ impl Calendar {
         obj.add_css_class("calendar");
         let calendar = inner::Calendar::from_obj(&obj);
         calendar.popover.set_parent(&obj);
+
         let calendar_outer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         calendar_outer.add_css_class("calendar-outer");
         let calendar_inner = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        calendar_inner.append(&create_month_selector(&calendar));
         calendar_inner.append(&calendar.grid);
         calendar_inner.add_css_class("calendar-inner");
         calendar_outer.append(&calendar_inner);
@@ -95,33 +99,35 @@ impl Calendar {
 
     fn load_month(&self) {
         let calendar = inner::Calendar::from_obj(&self);
-    	let now = chrono::offset::Local::now();
-    	let month = Month::try_from(now.month() as u8)
-    		.expect(&format!("Could not get month of {:?}", &now));
+    	let selected_date = calendar.selected_date.borrow().clone();
+        selected_date.1.set_text(
+            &format!("{}", selected_date.0.format_localized("%B %Y", chrono::Locale::default())));
+        let selected_date = selected_date.0;
+    	let month = Month::try_from(selected_date.month() as u8)
+    		.expect(&format!("Could not get month of {:?}", &selected_date));
         let prev_month = month.pred();
-    	let current_day = now.day();
-        let first_weekday = now.with_day(1).expect("could not get first day of month").weekday();
-        let last_day_of_month = month.num_days(now.year()).expect("failure computing number of days in month");
-        let mut last_month_year = now.year();
+    	let current_day = selected_date.day();
+        let first_weekday = selected_date.with_day(1).expect("could not get first day of month").weekday();
+        let last_day_of_month = month.num_days(selected_date.year()).expect("failure computing number of days in month");
+        let mut last_month_year = selected_date.year();
         let next_month = month.succ();
         let next_month_year = match next_month {
-            Month::January => now.year() + 1,
-            _ => now.year()
+            Month::January => selected_date.year() + 1,
+            _ => selected_date.year()
         };
         let last_month_days = match month {
             Month::January => {
-                last_month_year = now.year() - 1;
+                last_month_year = selected_date.year() - 1;
                 prev_month.num_days(last_month_year)
                 .expect("failure computing number of days in previous month (dec)")
             },
-            _ => prev_month.num_days(now.year())
+            _ => prev_month.num_days(selected_date.year())
                 .expect("failure computing number of days in previous month"),
         };
 
         // the number of days the first day of the month is from the first sunday
         let first_days_from_sunday = first_weekday.num_days_from_sunday();
 
-        println!("last month days {last_month_days} first_days_from_sunday {first_days_from_sunday}");
         let mut row = 1;
         let mut col = 0;
         for i in 0..first_days_from_sunday {
@@ -133,15 +139,18 @@ impl Calendar {
             col += 1;
         }
 
-        println!("-- {row} {col}");
+        let note_overlay_box = calendar.note_overlay_box.borrow();
+        note_overlay_box.set_visible(false);
+        let now = chrono::Local::now().date_naive();
         for i in 1..last_day_of_month+1 {
-            println!("-- {row} {col} | {i}");
             let day_box =  get_day_from_calendar_grid(&calendar.grid, (col, row));
-            day_box.set_date(now.year() as u32, month.number_from_month(), i as u32);
-            if i as u32 == current_day {
+            day_box.set_date(selected_date.year() as u32, month.number_from_month(), i as u32);
+            if i as u32 == current_day && month.number_from_month() == now.month() && selected_date.year() == now.year() {
                 day_box.add_css_class("today");
                 day_box.add_css_class("selected-day");
                 calendar.selected_day.replace(Some((col, row)));
+                note_overlay_box.set_visible(true);
+                set_overlay_box_message(&note_overlay_box, &get_overlay_box_textview(&note_overlay_box), true);
             }
             col += 1;
             if col == 7 {
@@ -150,20 +159,25 @@ impl Calendar {
             }
         }
 
-        if row == 6 {
-            return;
-        }
-        for (next_month_day, i) in (col..7).enumerate() {
-            println!("next_month_day {next_month_day}");
-            let day_box = get_day_from_calendar_grid(&calendar.grid, (i, row));
+        let mut next_month_day = 1;
+        while row < 7 {
+            let day_box = get_day_from_calendar_grid(&calendar.grid, (col, row));
+            day_box.set_date(next_month_year as u32, next_month.number_from_month(), next_month_day);
             day_box.add_css_class("other-month-daybox");
-            day_box.set_date(next_month_year as u32, next_month.number_from_month(), next_month_day as u32 + 1);
+            col += 1;
+            next_month_day += 1;
+            if col == 7 {
+                col = 0;
+                row += 1;
+            }
         }
     }
 
     pub fn open(&self) {
+        let calendar = self.get_inner();
+        calendar.selected_date.borrow_mut().0 = chrono::Local::now().date_naive();
         self.load_month();
-        self.get_inner().popover.popup();
+        calendar.popover.popup();
     }
 
     pub fn initialize(&self,
@@ -312,8 +326,8 @@ fn left_click_handler(
         note_entry_text_view: gtk::TextView
     ) -> impl Fn(&gtk::GestureClick, i32, f64, f64) {
     move |_gc: &gtk::GestureClick, _: i32, x: f64, y: f64| {
+        let calendar = calendar.get_inner();
         if let Some(day_box) = get_clicked_day_box(&popover, x, y) {
-            let calendar = calendar.get_inner();
             let (col, row, _, _) = calendar.grid.query_child(&day_box);
             println!("selected day_box: {:?}", (col, row));
             if let Some(last) = calendar.selected_day.replace(Some((col, row))) {
@@ -336,8 +350,34 @@ fn left_click_handler(
                 note_entry_text_view.set_visible(true);
             }
             note_entry_text_view.grab_focus();
+        } else if let Some(is_next) = get_clicked_month_selector(&popover, x, y) {
+            resync_selected_note_changes(calendar, &note_entry_text_view);
+            let mut selected_date = calendar.selected_date.borrow_mut();
+            let one_month = chrono::Months::new(1);
+            let new_date = match is_next {
+                true => selected_date.0 + one_month,
+                false => selected_date.0 - one_month
+            };
+            selected_date.0 = new_date;
+            drop(selected_date);
+            calendar.obj().load_month();
         }
     }
+}
+
+fn get_clicked_month_selector(popover: &gtk::Popover, x: f64, y: f64) -> Option<bool> {
+    let mut w = popover.pick(x, y, gtk::PickFlags::DEFAULT);
+    while let Some(widget) = w {
+        if widget.has_css_class("month-selector-last") {
+            return Some(false);
+        } else if widget.has_css_class("month-selector-next") {
+            return Some(true);
+        } else if widget.has_css_class("calendar") {
+            return None;
+        }
+        w = widget.parent();
+    }
+    unreachable!("calendar popup does not have calendar css class");
 }
 
 fn get_clicked_day_box(popover: &gtk::Popover, x: f64, y: f64) -> Option<DayBox> {
@@ -378,7 +418,7 @@ fn get_day_from_calendar_grid(grid: &gtk::Grid, selected_day: (i32, i32)) -> Day
 fn attach_day_boxes(grid: &gtk::Grid) {
     let mut row = 1;
     let mut col = 0;
-    for _ in 0..35 {
+    for _ in 0..42 {
         let day_box = DayBox::new();
         grid.attach(&day_box, col, row, 1, 1);
         col += 1;
@@ -399,6 +439,22 @@ fn attach_weekday_boxes(grid: &gtk::Grid) {
         label.add_css_class("weekday-label");
         grid.attach(&label, i as i32, 0, 1, 1);
     }
+}
+
+fn create_month_selector(calendar: &inner::Calendar) -> gtk::CenterBox {
+    let month_selector = gtk::CenterBox::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .build();
+    month_selector.add_css_class("month-selector");
+    let last_month_button = gtk::Label::new(Some("<"));
+    last_month_button.add_css_class("month-selector-last");
+    let next_month_button = gtk::Label::new(Some(">"));
+    next_month_button.add_css_class("month-selector-next");
+
+    month_selector.set_center_widget(Some(&calendar.selected_date.borrow().1));
+    month_selector.set_start_widget(Some(&last_month_button));
+    month_selector.set_end_widget(Some(&next_month_button));
+    month_selector
 }
 
 fn apply_note_icon(calendar_obj: &Calendar, icon_theme: &gtk::IconTheme, note_text_view: &gtk::TextView) {
@@ -444,4 +500,16 @@ fn attach_note_text_view_key_handler(note_entry_text_view: &gtk::TextView, overl
             note_entry_text_view.set_cursor_visible(true);
         }
     });
+}
+
+fn get_overlay_box_textview(overlay_box: &gtk::Box) -> gtk::TextView {
+    overlay_box
+        .parent()
+        .expect("note overlay box has no parent")
+        .parent()
+        .expect("note overlay box parent has no parent")
+        .parent()
+        .expect("note overlay box parent parent has no parent")
+        .downcast::<gtk::TextView>()
+        .expect("note overlay box parent parent parent is not textview")
 }
