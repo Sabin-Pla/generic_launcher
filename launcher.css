@@ -7,7 +7,7 @@
 @define-color result-selected @theme_selected_bg_color;
 @define-color result-selected-text @theme_text_color;
 
-@define-color button-inactive @insensitive_fg_color;
+@define-color button-inactive @theme_unfocused_fg_color;
 
 @define-color selected-bg @theme_selected_bg_color;
 @define-color accent-color shade(@theme_fg_color, 0.5);
@@ -20,21 +20,165 @@ window {
  	border-radius: 1em;
 }
 
+.note-taking-icon-overlay {
+	-gtk-icon-size: 8em;
+	opacity: 50%;
+	color: @theme_fg_color;
+	padding-left: 1em;
+	padding-right: 1em;
+}
+
+.note-taking-icon-overlay label {
+	min-width: 7em;
+	padding-left: 1em;
+	font-size: 1.24em;
+}
+
+.month-selector label {
+	font-size: 1.24em;
+	padding: 0.45em;
+	margin-bottom: 0.25em;
+	background-color: mix(@main-color, @theme_fg_color, 0.05);
+}
+
+
+.month-selector-last:hover {
+	background-color: mix(@main-color, @theme_fg_color, 0.2);
+}
+
+.month-selector-next:hover  {
+	background-color: mix(@main-color, @theme_fg_color, 0.2);
+}
+
+
+.calendar-inner {
+	padding: 0.4rem;
+	margin: 0.4rem;
+	background-color: mix(@main-color, @result-unselected, 0.05);
+}
+
+.marking-color1 { background-color: limegreen; }
+.marking-color2 { background-color: red; }
+
+.calendar-daybox {
+	margin: 0.2rem;
+	min-width: 3.2rem;
+	background-color: mix(@main-color, @theme_fg_color, 0.2);
+	font-size: 1.3rem;
+	border-radius: 15%;
+}	
+
+.other-month-daybox {
+	background-color: mix(@main-color, @theme_fg_color, 0.05);
+}
+
+.today {
+	color: @theme_selected_fg_color;
+    background-color: mix(@main-color, @theme_fg_color, 0.5);
+}
+
+.calendar-daybox:hover {
+	color: @theme_selected_fg_color;
+    background-color: @theme_selected_bg_color;
+}
+
+.selected-day {
+	color: @theme_selected_fg_color;
+    background-color: @theme_selected_bg_color;
+}
+
+.day-notes-window {
+	min-width: 22.4rem;
+}
+
+.day-marking {
+	min-height: 0.2em;
+	margin-bottom: 0.1em;
+	opacity: 40%;
+}
+
+.daybox-inner {
+	margin: 0.4em;
+	margin-top: 0.6em;
+}
+
+.note-badge {
+	min-width: 0.2em;
+	min-height: 0.2em;
+	border-radius: 50%;
+	margin: 0.3em 0.3em 0 0;
+	background-color: @theme_fg_color;
+}
+
+
+.weekday-label {
+	color: @theme_unfocused_text_color;
+	font-size: 1.5rem;
+	min-width: 1.5rem;
+	min-height: 1.5rem;
+	background-color: @theme_unfocused_base_color;
+	border-radius: 20%;
+	margin: 0.2em;
+}	
+
 .screenshot-button {
 	color: @button-inactive;
 	margin-top: 1em;
 	margin-right: 1em;
 }
 
+.volume-button {
+	color: @button-inactive;
+	margin-top: 1em;
+	margin-right: 1em;
+	background-origin: padding-box;
+	padding: 0px;
+	outline-width: 0px;
+	outline-offset: -3px;
+	outline-style: dashed;
+}
+
+
+
+.right-box {
+	padding: 0px;
+	outline-width: 0px;
+	outline-offset: -3px;
+	outline-style: dashed;
+	-gtk-icon-size: 1.25em;
+}
+
+image {
+	padding: 0px;
+	outline-width: 0px;
+	outline-offset: -3px;
+	outline-style: dashed;
+}
+
 .screenshot-button:focus {
-	color: @result-selected-text;
+	color: @theme_fg_color;
+}
+
+.focused-topbar-button {
+	color: @theme_fg_color;
+}
+
+
+.volume-popover {
+	min-width: 20rem;
+	opacity: 95%;
+}
+
+
+.popover-box {
+	background-color: shade(@main-color, 0.95);
 }
 
 .clock {
 	margin-top: 0.4em;
 	font-size: 1.4em;
 	color: @text-color;
-	background-color: shade(@result-unselected, 0.94);
+	background-color: @insensitive_base_color;
 	border-radius: 0.2em;
 }
 
@@ -46,6 +190,12 @@ window {
 	padding-bottom: 0.3em;
 	outline: @box-outline-color solid 0.02em;
 	border-radius: 0.5em;
+	color: @text-color;
+	background-clip: content-box;
+}
+
+.input-field placeholder {
+	opacity: 0.7;
 }
 
 .result-box {
@@ -53,23 +203,22 @@ window {
 	background-color: @result-unselected;
 	color: @result-unselected-text;
 	margin-bottom: 0.25em;
+	border-spacing: 0 0;
+	outline-offset: 0;
 }
 
 .result-box:hover {
-	background-color: shade(@result-selected, 0.8);
-	color: @result-selected-text;
+	background-color: shade(@selected-bg, 0.8);
+	color: @theme_selected_fg_color;
 	opacity: 100%;
 }
 
 .result-box:focus {
 	transition: 0.03s linear;
-	outline: 0.2em solid shade(@result-selected, 0.3);
+	outline: 0.2em solid shade(@selected-bg, 0.3);
 	background-image: none;
 	background-color: @result-selected;
-	color: @result-selected-text;
-}
-
-.result-container {
+	color: @theme_selected_fg_color;
 }
 
 .result-list {

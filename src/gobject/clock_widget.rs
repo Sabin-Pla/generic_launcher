@@ -5,11 +5,17 @@ use std::rc::Rc;
 use gtk::glib::{Object};
 use gtk::prelude::{Cast, LayoutManagerExt, WidgetExt};
 use gtk::subclass::prelude::*;
+use glib::prelude::IsA;
+
+use crate::gobject::Calendar;
 
 mod inner {
     use super::*;
 
-    pub struct ClockWidget(pub gtk::Label);
+    pub struct ClockWidget {
+        pub label: gtk::Label,
+        pub calendar: Calendar
+    }
 
     #[gtk::glib::object_subclass]
     impl ObjectSubclass for ClockWidget {
@@ -18,9 +24,12 @@ mod inner {
         type ParentType = gtk::Widget;
 
         fn new() -> Self {
-            let clock_label = gtk::Label::new(Some(&get_time_str()));
-            clock_label.set_halign(gtk::Align::Start);
-            Self(clock_label)
+            let label = gtk::Label::new(Some(&get_time_str()));
+            label.set_halign(gtk::Align::Start);
+            Self {
+                label,
+                calendar: Calendar::new()
+            }
         }
     }
 
@@ -107,7 +116,6 @@ mod inner {
         }
 
         fn allocate(&self, widget: &gtk::Widget, width: i32, height: i32, baseline: i32) {
-            use std::borrow::BorrowMut;
             let current_monitor = self.current_monitor.borrow();
             let current_monitor = current_monitor.borrow();
             let current_dimensions =
@@ -118,7 +126,7 @@ mod inner {
                 .downcast::<super::ClockWidget>()
                 .expect("ClockLayout allocate() called for non-clock widget");
             let clock_widget = inner::ClockWidget::from_obj(&clock_widget);
-            let clock_label = clock_widget.0.clone();
+            let clock_label = clock_widget.label.clone();
             let pango_font_size = clock_label.pango_context().font_description().unwrap().size(); 
             let num_chars = clock_label.text().len() as i32;
             let text_width = clock_label.layout().extents().1.width() / gtk::pango::SCALE;
@@ -168,17 +176,37 @@ glib::wrapper! {
 }
 
 impl ClockWidget {
-    pub fn new(monitor_cell: Rc<RefCell<Option<(i32, i32)>>>) -> Self {
+    pub fn new(
+            monitor_cell: Rc<RefCell<Option<(i32, i32)>>>, 
+            application_window: &gtk::ApplicationWindow,
+            focus_on_panel_hide: &impl IsA<gtk::Widget>,
+            icon_theme: &gtk::IconTheme
+        ) -> Self {
         let obj = Object::new::<Self>();
-        let clock_label = &inner::ClockWidget::from_obj(&obj).0;
+        
+        let clock_widget = inner::ClockWidget::from_obj(&obj);
+        let clock_label = &clock_widget.label;
+        let calendar = &clock_widget.calendar;
+        calendar.initialize(application_window, focus_on_panel_hide, icon_theme);
+
         let mut layout_manager = obj
             .layout_manager()
             .expect("ClockLayout not created for ClockWidget")
             .downcast::<ClockLayout>()
             .expect("ClockLayout expected, got invalid LayoutManager class");
 
+        let obj_click = obj.clone();
+        let clock_click_handler = move |_gc: &gtk::GestureClick, _: i32, _: f64, _: f64| {
+            let clock_widget = inner::ClockWidget::from_obj(&obj_click);
+            clock_widget.calendar.open();
+        };
+        let gesture_click = gtk::GestureClick::new();
+        gesture_click.connect_pressed(clock_click_handler);
+        obj.add_controller(gesture_click);
+
         layout_manager.set_monitor_cell(monitor_cell);
         clock_label.set_parent(&obj);
+        calendar.set_parent(&obj);
         setup_on_clock_tick(clock_label);
         obj.set_child_visible(true);
         obj.add_css_class("clock");
@@ -201,7 +229,7 @@ impl ClockLayout {
 
 fn get_time_str() -> String {
     let date_time = chrono::offset::Local::now();
-    format!("{}", date_time.format("%a %d/%B %Y %H:%M:%S"))
+    format!("{}", date_time.format_localized("%a %d/%B %Y %H:%M:%S", chrono::Locale::default()))
 }
 
 fn set_clock_time(clock: &gtk::Label) {

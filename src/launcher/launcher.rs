@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gtk::prelude::{EditableExt, EntryExt, FileExt, GridExt,  WidgetExt};
+use gtk::prelude::{EditableExt, EntryExt, FileExt,  WidgetExt};
 
 use super::State;
-use crate::gobject::{SearchEntryBuffer, SearchResultContainer, SearchResultBox};
+use crate::gobject::{SearchEntryBuffer, SearchResultContainer};
 use crate::search;
 use crate::search::SearchContext;
 use crate::xdg_desktop_entry::XdgDesktopEntry;
@@ -15,6 +15,7 @@ use crate::launcher::RESULT_ENTRY_COUNT;
 pub struct Launcher {
     pub state: State,
     pub css_provider: Option<(std::sync::Arc<gio::File>, gtk::CssProvider)>,
+    pub window_width_css_provider: gtk::CssProvider,
     pub search_result_container: SearchResultContainer,
     pub selected_search_idx: Option<isize>,
     pub search_bar: Rc<gtk::Entry>,
@@ -30,11 +31,14 @@ pub struct Launcher {
 }
 
 impl Launcher {
+    pub const SCREEN_WIDTH_RATIO: f32 = 0.40;
+
     pub fn uninitialized() -> Self {
         Launcher {
             state: State::NotStarted,
             css_provider: None,
             search_result_container: SearchResultContainer::new(),
+            window_width_css_provider: gtk::CssProvider::new(),
             selected_search_idx: None,
             search_bar: Default::default(),
             user_desktop_files: None,
@@ -83,8 +87,8 @@ impl Launcher {
         search_result_box.set_idx_in_search_result_vector(search_result_idx);
         search_result_box.set_focusable(true);
         search_result_box.set_visible(true);
-        let app_info = desktop_entry.app_info.clone();
         /*
+        let app_info = desktop_entry.app_info.clone();
         if app_info.has_key("Icon") {
             let icon_name = app_info.locale_string("Icon").unwrap();
             let image = gtk::Image::from_icon_name(&icon_name);
@@ -98,7 +102,6 @@ impl Launcher {
             result_box.set_icon(&icon_name);
         } 
         */
-        let search_result_box = &mut self.search_result_container.index(container_idx);
     }
 
     pub fn reload_css(&mut self) {
@@ -112,7 +115,7 @@ impl Launcher {
     }
 
     pub fn hide_search_results_container(&self) {
-        self.search_result_container.hide();
+        self.search_result_container.hide(None);
     }
 
      pub fn show_search_results_container(&self) {
@@ -135,13 +138,16 @@ impl Launcher {
     pub fn display_search_results(&mut self, result_idx: Option<usize>) {
         let mut counter = 0;
         let result_idx = result_idx.unwrap_or(0);
-        for (idx, desktop_idx) in self.search_results_cache[result_idx..].iter().enumerate() {
+        let results = self.search_results_cache[result_idx..].iter();
+        println!("results len: {}", results.len());
+        for (idx, desktop_idx) in results.clone().enumerate() {
             if counter >= RESULT_ENTRY_COUNT {
                 break;
             }
             self.set_search_result_box(*desktop_idx, counter, idx+result_idx);
             counter += 1;
         }
+        self.search_result_container.hide(Some(results.len()..RESULT_ENTRY_COUNT));
     }
 }
 
@@ -200,7 +206,6 @@ pub fn scroll_search_results_down(launcher: Rc<RefCell<Launcher>>) {
 
 pub fn scroll_search_results_up(launcher: Rc<RefCell<Launcher>>) -> bool {
     let mut launcher = launcher.borrow_mut();
-    const END_IDX: isize = (RESULT_ENTRY_COUNT - 1) as isize;
     match launcher.selected_search_idx {
         Some(0) => {
             let prev_search_result_idx = launcher.search_result_container.index(0)

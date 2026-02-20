@@ -23,7 +23,7 @@ Set up shortcuts for your compositor. For Hyprland I use:
 - Better search score function
 - Ensure search with < 6 search results work  
 - Settings toml file logic is partially implemented but unused and untested
-- Set window size properly for HiDPI displays
+- ~~Set window size properly for HiDPI displays~~
 - Launcher options on dropdown/rightclick, as some .desktop files have multiple launch options
   - Also add "Open .desktop file location" option there
 - Allow selecting from a set of pre-defined themes. 
@@ -51,4 +51,4 @@ The default CSS used in the screenshot uses the default system theme, in this ca
 Thank you to the gnome project http://www.gnome.org for icons (Adwaita)
 These are packaged to avoid dependencies.
 
-
+Note taking icon from: https://www.svgrepo.com/svg/509175/note

@@ -5,6 +5,7 @@ mod search;
 mod user_config;
 mod utils;
 mod xdg_desktop_entry;
+mod volume_mixer;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -24,7 +25,7 @@ thread_local! {
 
 unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<Launcher>>) {
     // this function is called whenever the application is 'activated' (reopened after being dismissed)
-    let mut launcher = launcher_cell.borrow_mut();
+    let launcher = launcher_cell.borrow();
 
     WINDOW.with(|application_window| {
         let mut application_window = (*application_window).borrow_mut();
@@ -44,6 +45,7 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
             State::Hidden => {
                 println!("Showing launcher");
                 application_window.set_visible(true);
+
                 // set monitor dimensions
                 let surface = application_window.surface().unwrap();
                 let display = gtk::prelude::WidgetExt::display(application_window);
@@ -51,8 +53,15 @@ unsafe fn activate(_application: &gtk::Application, launcher_cell: Rc<RefCell<La
                 let rect = display.unwrap().geometry();
                 let (monitor_width, monitor_height) = (rect.width(), rect.height());
                 *launcher.current_monitor.borrow_mut() = Some((monitor_width, monitor_height));
-                application_window.set_margin(gtk4_layer_shell::Edge::Left, (monitor_width as f32 * 0.25) as i32);
-                application_window.set_margin(gtk4_layer_shell::Edge::Right, (monitor_width as f32 * 0.25) as i32);
+                let margin_size = (monitor_width as f32) * (1.0 - Launcher::SCREEN_WIDTH_RATIO) / 2.0;
+                application_window.set_margin(
+                    gtk4_layer_shell::Edge::Left, 
+                    margin_size as i32);
+                application_window.set_margin(
+                    gtk4_layer_shell::Edge::Right, 
+                    margin_size as i32);
+                launcher.window_width_css_provider.load_from_string(
+                    &format!("window {{ min-width: {}px; }}", (monitor_width as f32 * Launcher::SCREEN_WIDTH_RATIO) as i32));
 
                 launcher.hide_search_results_container();
                 let search_bar = launcher.search_bar.clone();
@@ -78,25 +87,36 @@ unsafe fn startup(application: &gtk::Application, launcher_cell: Rc<RefCell<Laun
     );
 
     let mut application_window = application_window::initialize(application);
+    
+    // set this to keep make window automatically resize after search results are hidden 
+    application_window.set_default_size(-1, -1);
+    
     application_window::populate(
         &mut application_window,
         &application_settings,
         launcher_cell.clone(),
     );
-
+    
     // todo!("get state from user config");
     application_window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
 
     let mut launcher = launcher_cell.borrow_mut();
+
     let css_file = std::sync::Arc::new(application_settings.css_file);
+    let default_display = gdk::Display::default().expect("Could not connect to a display.");
     let provider = gtk::CssProvider::new();
     gtk::style_context_add_provider_for_display(
-        &gdk::Display::default().expect("Could not connect to a display."),
+        &default_display,
         &provider,
         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
-
     launcher.css_provider = Some((css_file.clone(), provider.into()));
+
+    gtk::style_context_add_provider_for_display(
+        &default_display,
+        &launcher.window_width_css_provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+    );
 
     drop(launcher);
     utils::hot_reload::attach(
@@ -105,6 +125,7 @@ unsafe fn startup(application: &gtk::Application, launcher_cell: Rc<RefCell<Laun
             .expect("Error getting pathbuf for css provider"),
         launcher_cell.clone(),
     );
+    
     let mut launcher = launcher_cell.borrow_mut();
     launcher.reload_css();
     launcher.state = launcher::State::Hidden;

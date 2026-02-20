@@ -1,5 +1,4 @@
 use super::*;
-use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};
 use crate::xdg_desktop_entry::XdgDesktopEntry;
 
 fn get_search_score_for(entry: &XdgDesktopEntry, query_string: &str) -> usize {
@@ -16,7 +15,7 @@ struct SearchCandidate {
     score: usize,
 }
 
-fn fetch_search_results(context: &SearchContext, mut query_string: String) -> SearchResult {
+fn fetch_search_results(context: &SearchContext, query_string: String) -> SearchResult {
     let mut results: Vec<SearchCandidate> = Vec::with_capacity(context.user_desktop_files.len());
     let mut query_string = match query_string.as_str() {
         "\n" => "".to_string(),
@@ -49,11 +48,4 @@ pub fn refetch_results(search_context: &mut SearchContext, buffer: String) -> Se
     let search_results = fetch_search_results(&search_context, buffer);
     search_context.result_cache = search_results.clone();
     search_results
-}
-
-pub fn get_xdg_index_from_last_search_result_idx(
-    context: &SearchContext,
-    idx: usize,
-) -> Option<usize> {
-    context.result_cache.get(idx).copied()
 }

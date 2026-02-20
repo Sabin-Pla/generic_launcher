@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::gobject::{ClockWidget, SearchEntryIMContext, SearchResultBox};
-use crate::launcher::{Launcher, RESULT_ENTRY_COUNT};
+use crate::gobject::{ClockWidget, VolumeControl};
+use crate::launcher::{Launcher};
 use crate::{SearchEntryBuffer, xdg_desktop_entry};
 use gtk::prelude::*;
 
@@ -14,11 +14,16 @@ pub fn root(
     icon_theme: &gtk::IconTheme,
 ) {
     let root_box = gtk::Box::new(gtk::Orientation::Vertical, 9);
+    let search_bar = search_bar(launcher_cell.clone());
     root_box.add_css_class("root");
-    root_box.append(&topbar(launcher_cell.clone(), icon_theme));
-    root_box.append(&search_bar(launcher_cell.clone()));
+    let topbar = &topbar(launcher_cell.clone(), icon_theme, application_window, &search_bar);
+    root_box.append(topbar);
+    root_box.append(&search_bar);
+    
+
     let launcher = launcher_cell.borrow();
-    let mut search_result_container = launcher.search_result_container.clone();
+    let search_result_container = launcher.search_result_container.clone();
+
     drop(launcher);
     search_result_container.attach_result_box_handlers(event_handler::attach_result_box_handlers, launcher_cell.clone());
     search_result_container.attach_scroll_bar_handler(event_handler::results_scroll_handler, launcher_cell);
@@ -26,19 +31,27 @@ pub fn root(
     application_window.set_child(Some(&root_box));
 }
 
-fn topbar(launcher: Rc<RefCell<Launcher>>, icon_theme: &gtk::IconTheme) -> gtk::CenterBox {
+fn topbar(
+        launcher: Rc<RefCell<Launcher>>, 
+        icon_theme: &gtk::IconTheme, 
+        application_window: &gtk::ApplicationWindow,
+        focus_on_panel_hide: &impl IsA<gtk::Widget>) -> gtk::CenterBox {
     let topbar = gtk::CenterBox::builder()
         .orientation(gtk::Orientation::Horizontal)
         .build();
 
     let monitor_cell = launcher.borrow().current_monitor.clone();
-    topbar.set_center_widget(Some(&ClockWidget::new(monitor_cell)));
-    topbar.set_end_widget(Some(&screenshot_button(launcher, icon_theme)));
+    topbar.set_center_widget(Some(&ClockWidget::new(monitor_cell, application_window, focus_on_panel_hide, &icon_theme)));
+    let right = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    right.add_css_class("right-box");
+
+    right.append(&volume_button(launcher.clone(), icon_theme, application_window, focus_on_panel_hide));
+    right.append(&screenshot_button(launcher, icon_theme));
+    topbar.set_end_widget(Some(&right));
     topbar
 }
 
 fn search_bar(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
-    let launcher_cell_search_entry = launcher_cell.clone();
     let mut launcher = launcher_cell.borrow_mut();
 
     let xdg_desktop_entries = xdg_desktop_entry::get_xdg_desktop_entries();
@@ -71,7 +84,7 @@ fn search_bar(launcher_cell: Rc<RefCell<Launcher>>) -> gtk::Entry {
     drop(launcher);
     search_bar.set_placeholder_text(Some("Applications"));
     search_bar.set_has_frame(true);
-    let mut launcher = launcher_cell.borrow_mut();
+    let launcher = launcher_cell.borrow_mut();
     launcher.hide_search_results_container();
     search_bar.clone()
 }
@@ -99,4 +112,18 @@ fn screenshot_button(
     screenshot_icon.add_css_class("screenshot-button");
     launcher.screenshot_button = Rc::new(screenshot_icon.clone());
     screenshot_icon
+}
+
+fn volume_button(
+    launcher_cell: Rc<RefCell<Launcher>>,
+    icon_theme: &gtk::IconTheme,
+    application_window: &gtk::ApplicationWindow,
+    focus_on_panel_hide: &impl IsA<gtk::Widget>
+) -> VolumeControl {
+    let volume_button = VolumeControl::new(icon_theme, &application_window.clone(), focus_on_panel_hide);
+
+    event_handler::attach_volume_handlers(launcher_cell.clone(), volume_button.clone(), application_window.clone());
+    volume_button.set_focusable(true);
+    volume_button.add_css_class("volume-button");
+    volume_button
 }

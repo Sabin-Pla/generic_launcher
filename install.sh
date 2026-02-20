@@ -12,7 +12,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$INSTALL_DIR" ]]; then 
-	export INSTALL_DIR="$(dirname "$0")"
+	export INSTALL_DIR="$(dirname "${BASH_SOURCE[0]}")"
 fi
 
 if [[ ! -d "$INSTALL_DIR" ]]; then 
@@ -22,7 +22,7 @@ fi
 
 INSTALL_DIR=$(realpath "$INSTALL_DIR")
 echo "installing to $INSTALL_DIR"
-project_dir=$(dirname "$0")
+project_dir=$(dirname "${BASH_SOURCE[0]}")
 cd "$project_dir"
 echo "performing build in: $(realpath "$project_dir")"
 

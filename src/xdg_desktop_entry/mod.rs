@@ -1,5 +1,4 @@
 use std::ffi::OsStr;
-use std::cell::RefCell;
 
 mod xdg_desktop_entry;
 pub use xdg_desktop_entry::XdgDesktopEntry;
